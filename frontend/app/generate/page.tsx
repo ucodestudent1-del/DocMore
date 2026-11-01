@@ -62,7 +62,11 @@ export default function GeneratePage() {
   const [templates, setTemplates] = useState<string[]>([]);
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const searchParams = useSearchParams();
-  const templateName = searchParams.get("template");
+  const [templateName, setTemplateName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTemplateName(searchParams.get("template"));
+  }, [searchParams]);
 
   useEffect(() => {
     listTemplates().then((r: any) => setTemplates(r.templates || [])).catch(() => {});
