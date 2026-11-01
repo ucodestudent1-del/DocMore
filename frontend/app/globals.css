@@ -60,7 +60,7 @@
 
   /* Skip link styling */
   .sr-only {
-    @apply absolute -px-9999 -py-9999 overflow-hidden whitespace-nowrap border-0 p-0 white-space-nowrap shrink-0;
+    @apply absolute -left-[9999px] -top-[9999px] overflow-hidden whitespace-nowrap border-0 p-0 white-space-nowrap shrink-0;
   }
 
   /* Focus indicators for keyboard navigation */
