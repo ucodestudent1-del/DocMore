@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import { listHistory } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
