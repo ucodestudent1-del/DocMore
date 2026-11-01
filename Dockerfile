@@ -25,9 +25,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Build Next.js frontend
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN cd /app && npm install --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
+RUN cd /app && npm install --legacy-peer-deps
 COPY frontend ./frontend
-RUN cd /app/frontend && npm run build
+RUN cd /app/frontend && npm run build && ls -la /app/frontend/out/
 
 # Backend code
 COPY backend ./backend
