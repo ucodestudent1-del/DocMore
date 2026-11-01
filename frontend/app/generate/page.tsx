@@ -31,6 +31,8 @@ import { TemplateForm } from "@/app/generate/components/TemplateForm";
 import { TemplatePreview } from "@/app/generate/components/TemplatePreview";
 import { TEMPLATES, type TemplateBlock } from "@/lib/templates";
 
+export const dynamic = "force-dynamic";
+
 type Block = {
   id: string;
   type: "heading" | "paragraph" | "list" | "table" | "image" | "pagebreak";
@@ -51,6 +53,14 @@ const FORMATS = [
 ];
 
 export default function GeneratePage() {
+  return (
+    <Suspense fallback={null}>
+      <GeneratePageContent />
+    </Suspense>
+  );
+}
+
+function GeneratePageContent() {
   const [blocks, setBlocks] = useState<Block[]>(INITIAL_BLOCKS);
   const [undoStack, setUndoStack] = useState<Block[][]>([]);
   const [redoStack, setRedoStack] = useState<Block[][]>([]);
@@ -83,12 +93,10 @@ export default function GeneratePage() {
     }
   }, [templateName, templateLoaded]);
 
-  // Auto-save draft to localStorage whenever blocks change
   useEffect(() => {
     localStorage.setItem("ud-draft", JSON.stringify(blocks));
   }, [blocks]);
 
-  // Load draft on mount if no template was specified
   useEffect(() => {
     if (!templateName) {
       const saved = localStorage.getItem("ud-draft");
@@ -184,7 +192,6 @@ export default function GeneratePage() {
   };
 
   return (
-    <Suspense fallback={null}>
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Document Generator</h1>
@@ -333,7 +340,6 @@ export default function GeneratePage() {
         </div>
       </div>
     </div>
-    </Suspense>
   );
 }
 
@@ -397,4 +403,3 @@ function BlockEditor({ block, onUpdate, onRemove }: { block: Block; onUpdate: (i
     </div>
   );
 }
-
