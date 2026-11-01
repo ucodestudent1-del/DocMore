@@ -2,17 +2,23 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare
+from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare, payments
+from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
 import os
 from pathlib import Path
 
 app = FastAPI(title="Universal Document Studio", version="1.0.0")
 
+# Security middleware (order matters - outer middleware wraps inner)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(RateLimitMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
+    allow_origins=["*"],  # In production, restrict to specific domains
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -25,6 +31,8 @@ app.include_router(download.router, prefix="/api")
 app.include_router(formats.router, prefix="/api")
 app.include_router(auth.router, prefix="/api/auth")
 app.include_router(compare.router, prefix="/api")
+app.include_router(auth.router, prefix="/api/auth")
+app.include_router(payments.router, prefix="/api/payments")
 
 
 @app.get("/api/health")

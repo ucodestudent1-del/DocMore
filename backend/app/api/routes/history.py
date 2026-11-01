@@ -1,4 +1,4 @@
-"""API routes: processing history."""
+"""API routes: history."""
 
 from typing import Optional
 from fastapi import APIRouter, Depends
@@ -9,8 +9,8 @@ router = APIRouter(tags=["history"])
 
 
 @router.get("/history")
-def get_history(
+async def get_history(
     limit: int = 100,
     current_user: dict = Depends(get_current_user),
 ):
-    return {"history": storage.list_history(limit=limit, user_id=current_user["username"])}
+    return {"history": await storage.list_history(limit=limit, user_id=current_user["username"])}

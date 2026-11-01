@@ -6,14 +6,28 @@ services:
     ports:
       - "6379:6379"
 
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: everyday
+      POSTGRES_PASSWORD: everyday
+      POSTGRES_DB: everyday
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   backend:
-    build: ./backend
+    build: .
     depends_on:
       - redis
+      - postgres
     ports:
       - "8000:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://everydoc:everydoc@postgres:5432/everydoc
       - MAX_FILE_SIZE=52428800
       - SECRET_KEY=change-me-in-production
       - ALGORITHM=HS256
@@ -22,3 +36,6 @@ services:
     volumes:
       - ./backend/data:/app/data
     restart: unless-stopped
+
+volumes:
+  postgres_data:

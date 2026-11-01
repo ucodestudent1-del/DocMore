@@ -8,8 +8,12 @@ from app.auth import (
     verify_password,
     get_current_user,
     get_current_user_optional,
+    create_user,
+    get_user_by_username,
 )
-from app.models import user_store
+from app.database import async_session
+from app.models import User
+from sqlalchemy import select
 
 router = APIRouter(tags=["auth"])
 
@@ -38,8 +42,8 @@ class UserOut(BaseModel):
 
 
 @router.post("/register", response_model=UserOut)
-def register(user: UserRegister):
-    created = user_store.create_user(user.username, user.email, user.password, user.tier)
+async def register(user: UserRegister):
+    created = await create_user(user.username, user.email, user.password, user.tier)
     if created is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -49,8 +53,9 @@ def register(user: UserRegister):
 
 
 @router.post("/token", response_model=Token)
-def login(user: UserLogin):
-    db_user = user_store.get_user(user.username)
+async def login(user: UserLogin):
+    async with async_session() as db:
+        db_user = await get_user_by_username(db, user.username)
     if db_user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -68,7 +73,5 @@ def login(user: UserLogin):
 
 
 @router.get("/me", response_model=UserOut)
-def read_users_me(current_user: dict = Depends(get_current_user)):
-    user = user_store.get_user(current_user["username"])
-    tier = user.get("tier", "free") if user else "free"
-    return UserOut(username=current_user["username"], email=current_user["email"], tier=tier)
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    return UserOut(username=current_user["username"], email=current_user["email"], tier=current_user.get("tier", "free"))
