@@ -1,8 +1,6 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { useState, useCallback, useEffect, useRef } from "react";
+import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   generateDocument,
@@ -182,6 +180,7 @@ export default function GeneratePage() {
   };
 
   return (
+    <Suspense fallback={null}>
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Document Generator</h1>
@@ -330,6 +329,7 @@ export default function GeneratePage() {
         </div>
       </div>
     </div>
+    </Suspense>
   );
 }
 
