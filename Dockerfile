@@ -27,6 +27,6 @@ RUN cd /app && npm install --legacy-peer-deps
 COPY frontend ./frontend
 RUN cd /app/frontend && npm run build
 
-EXPOSE 8000
+EXPOSE 8000 3000
 
-CMD ["sh", "-c", "cd /app/backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "cd /app/frontend && npm run start -- --port 3000 & cd /app/backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
