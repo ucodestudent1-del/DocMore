@@ -31,8 +31,12 @@ function authHeaders(): HeadersInit {
 }
 
 export async function apiRequest(input: RequestInfo | URL, init?: RequestInit) {
-  const headers: HeadersInit = { "Content-Type": "application/json", ...(init?.headers || {}), ...authHeaders() };
-  const res = await fetch(input, { headers, ...init });
+  const mergedHeaders: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(init?.headers || {}),
+    ...authHeaders(),
+  };
+  const res = await fetch(input, { ...init, headers: mergedHeaders });
   if (res.status === 401) {
     clearToken();
     if (typeof window !== "undefined") {
