@@ -32,8 +32,8 @@ async def health():
     return {"status": "ok"}
 
 
-# Serve Next.js frontend static files (built into /app/frontend/.next)
-FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / ".next" / "standalone"
+# Serve Next.js frontend static files (built into /app/frontend/out)
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "out"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
