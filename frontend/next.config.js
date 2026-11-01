@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// cache-bust: remove output: export for server-side rendering
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
