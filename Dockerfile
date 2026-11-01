@@ -5,7 +5,8 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     REDIS_URL=redis://redis:6379/0 \
-    PORT=8000
+    PORT=8000 \
+    PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice poppler-utils tesseract-ocr libmagic1 fonts-dejavu-core \
