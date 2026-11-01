@@ -1,22 +1,31 @@
 """Authentication utilities: password hashing, JWT tokens, current user dependency."""
 
+import bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from fastapi import HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash a password using bcrypt. bcrypt limits passwords to 72 bytes."""
+    pwd = password.encode("utf-8")[:72]
+    return bcrypt.hashpw(pwd, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password against a bcrypt hash."""
+    try:
+        pwd = plain_password.encode("utf-8")[:72]
+        return bcrypt.checkpw(pwd, hashed_password.encode("utf-8"))
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -38,3 +47,43 @@ def verify_token(token: str) -> Optional[str]:
         return username
     except JWTError:
         return None
+
+
+async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[dict]:
+    """Return the current user if authenticated, otherwise None."""
+    if token is None:
+        return None
+    username = verify_token(token)
+    if username is None:
+        return None
+    from app.models import user_store
+    user = user_store.get_user(username)
+    if user is None:
+        return None
+    return {"username": user["username"], "email": user["email"], "tier": user.get("tier", "free")}
+
+
+async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dict:
+    """Require authentication. Raises 401 if not authenticated."""
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    username = verify_token(token)
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    from app.models import user_store
+    user = user_store.get_user(username)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return {"username": user["username"], "email": user["email"], "tier": user.get("tier", "free")}

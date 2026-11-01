@@ -19,11 +19,10 @@ class DiffResult(BaseModel):
     added: int
     removed: int
     unchanged: int
-    diff: list  # list of diff lines
+    diff: list
 
 
 def _extract_text_from_pdf(file_path: Path) -> str:
-    """Extract text from a PDF file."""
     from pypdf import PdfReader
     reader = PdfReader(str(file_path))
     parts = []
@@ -36,7 +35,6 @@ def _extract_text_from_pdf(file_path: Path) -> str:
 
 
 def _extract_text_from_docx(file_path: Path) -> str:
-    """Extract text from a DOCX file."""
     from docx import Document
     doc = Document(str(file_path))
     parts = []
@@ -52,7 +50,6 @@ def _extract_text_from_docx(file_path: Path) -> str:
 
 
 def _extract_text_from_file(file_path: Path, ext: str) -> str:
-    """Extract text from a file based on its extension."""
     ext = ext.lower().lstrip(".")
     if ext == "pdf":
         return _extract_text_from_pdf(file_path)
@@ -68,7 +65,6 @@ def _extract_text_from_file(file_path: Path, ext: str) -> str:
 
 
 def _compute_diff(text1: str, text2: str) -> dict:
-    """Compute diff between two text strings."""
     lines1 = text1.splitlines()
     lines2 = text2.splitlines()
     diff = list(difflib.unified_diff(lines1, lines2, lineterm=""))
@@ -89,19 +85,16 @@ def _compute_diff(text1: str, text2: str) -> dict:
 async def compare_documents(
     file1: UploadFile = File(...),
     file2: UploadFile = File(...),
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
-    """Compare two documents and return a diff."""
-    # Upload both files
     content1 = await file1.read()
     content2 = await file2.read()
 
     entry1 = storage.save_upload(content1, file1.filename or "file1",
-                                 user_id=current_user.username if current_user else None)
+                                 user_id=current_user["username"])
     entry2 = storage.save_upload(content2, file2.filename or "file2",
-                                 user_id=current_user.username if current_user else None)
+                                 user_id=current_user["username"])
 
-    # Extract text from both files
     path1 = Path(entry1["path"])
     path2 = Path(entry2["path"])
 

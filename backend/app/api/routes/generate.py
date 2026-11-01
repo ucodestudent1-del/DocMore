@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 
 from app.storage import storage
@@ -18,8 +17,6 @@ from app.jobs import enqueue, get_job
 from app.api.routes.auth import get_current_user
 
 router = APIRouter(tags=["generate"])
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 
 class BlockIn(BaseModel):
@@ -111,11 +108,12 @@ TEMPLATES: Dict[str, List[BlockIn]] = {
         BlockIn(type="heading", data={"text": "{{name}}", "level": 1}),
         BlockIn(type="paragraph", data={"text": "{{email}} | {{phone}} | {{location}}"}) ,
         BlockIn(type="heading", data={"text": "Experience", "level": 2}),
-        BlockIn(type="list", data={"items": ["{{exp1}}", "{{exp2}"], "ordered": False}),
+        BlockIn(type="list", data={"items": ["{{exp1}}", "{{exp2}}"], "ordered": False}),
     ],
     "report": [
         BlockIn(type="heading", data={"text": "{{title}}", "level": 1}),
         BlockIn(type="paragraph", data={"text": "{{summary}}"}),
+
         BlockIn(type="heading", data={"text": "Findings", "level": 2}),
         BlockIn(type="list", data={"items": ["{{finding1}}", "{{finding2}}"]}),
     ],
@@ -144,7 +142,7 @@ TEMPLATES: Dict[str, List[BlockIn]] = {
 @router.post("/generate")
 def generate_document(
     req: GenerateRequest,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     blocks = _to_blocks(req.blocks)
     if req.data:
@@ -152,14 +150,14 @@ def generate_document(
     block_dicts = _blocks_to_dicts(blocks)
     job_id = enqueue("generate", block_dicts, req.format, req.data or {},
                      req.page_size, req.orientation, req.margins or {},
-                     user_id=current_user.username if current_user else None)
+                     user_id=current_user["username"])
     return {"job_id": job_id, "status": "queued"}
 
 
 @router.post("/generate/template")
 def generate_template(
     req: TemplateRequest,
-    current_user: Optional[dict] = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     name = req.name
     data = req.data
@@ -173,7 +171,7 @@ def generate_template(
     fmt = req.format
     job_id = enqueue("generate", block_dicts, fmt, data or {},
                      "letter", "portrait", {},
-                     user_id=current_user.username if current_user else None)
+                     user_id=current_user["username"])
     return {"job_id": job_id, "status": "queued", "template": name}
 
 

@@ -11,7 +11,7 @@ app = FastAPI(title="Universal Document Studio", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -33,7 +33,7 @@ async def health():
 
 
 # Serve Next.js frontend static files (built into /app/frontend/out)
-FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "out"
+FRONTEND_DIR = Path(os.environ.get("FRONTEND_DIR", str(Path(__file__).resolve().parent.parent.parent / "frontend" / "out")))
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 

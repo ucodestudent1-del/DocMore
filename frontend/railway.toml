@@ -1,11 +1,2 @@
-[build]
-builder = "NIXPACKS"
-
-[deploy]
-startCommand = "npm run start"
-healthcheckPath = "/api/health"
-restartPolicyType = "always"
-restartPolicyMaxRetries = 10
-
-[env]
-NEXT_PUBLIC_API_BASE = "https://everydoc-production.up.railway.app"
+# Single-service deployment: backend serves built frontend.
+# See root railway.toml for the service definition.

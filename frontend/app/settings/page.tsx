@@ -1,7 +1,7 @@
 "use client";
 
-
 import { useState, useEffect } from "react";
+import { getToken, fetchMe } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { downloadFile } from "@/lib/api";
 import { apiRequest } from "@/lib/api";
+import { toast } from "@/components/ui/toast";
+import { useRouter } from "next/navigation";
 
 const TIER_LIMITS = {
   free: {
@@ -30,17 +32,22 @@ const TIER_LIMITS = {
 };
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [theme, setTheme] = useState("system");
   const [maxSize, setMaxSize] = useState("50");
   const [userTier, setUserTier] = useState("");
   const [tierLoading, setTierLoading] = useState(true);
 
   useEffect(() => {
-    apiRequest("/api/auth/me").then((user: any) => {
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
+    fetchMe().then((user: any) => {
       setUserTier(user.tier || "free");
       setTierLoading(false);
     }).catch(() => setTierLoading(false));
-  }, []);
+  }, [router]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -119,11 +126,13 @@ export default function SettingsPage() {
           <CardTitle>Backend</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">API: http://127.0.0.1:8000</p>
-          <Button variant="outline" size="sm">Health check</Button>
+          <p className="text-sm text-muted-foreground">API configured</p>
+          <Button variant="outline" size="sm" onClick={() => {
+            apiRequest("/api/health").then(() => toast({ title: "Backend", description: "Online" }))
+              .catch(() => toast({ title: "Backend", description: "Offline" }));
+          }}>Health check</Button>
         </CardContent>
       </Card>
     </div>
   );
 }
-

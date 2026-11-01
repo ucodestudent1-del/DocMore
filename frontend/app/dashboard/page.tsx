@@ -2,12 +2,14 @@
 
 
 import { useEffect, useState } from "react";
+import { getToken } from "@/lib/api";
 import { listHistory, downloadFile } from "@/lib/api";
 import { formatBytes, iconForExtension } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, File, Clock, Play, Download } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const RECENT_ACTIONS = [
   { label: "Convert a document", href: "/convert", icon: Upload, desc: "PDF, Word, Excel, images and more" },
@@ -16,15 +18,22 @@ const RECENT_ACTIONS = [
 ];
 
 export default function Dashboard() {
+  const router = useRouter();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
     listHistory(10).then((h: any) => {
       setHistory(h.history || []);
       setLoading(false);
+    }).catch(() => {
+      setLoading(false);
     });
-  }, []);
+  }, [router]);
 
   return (
     <div className="space-y-6">
@@ -116,4 +125,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

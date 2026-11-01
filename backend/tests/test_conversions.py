@@ -95,3 +95,59 @@ def test_unknown_conversion():
     out = os.path.join(tmp, "x.zzz")
     res = registry.convert("pdf", "zzz", src, out, {})
     assert res.ok is False
+
+
+def test_html_to_pdf():
+    tmp = tempfile.mkdtemp()
+    src = os.path.join(tmp, "t.html")
+    out = os.path.join(tmp, "t.pdf")
+    with open(src, "w") as f:
+        f.write("<h1>Hello</h1><p>World</p>")
+    res = registry.convert("html", "pdf", src, out, {})
+    assert res.ok, res.error
+    assert os.path.exists(out)
+    assert os.path.getsize(out) > 0
+    with open(out, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_md_to_pdf():
+    tmp = tempfile.mkdtemp()
+    src = os.path.join(tmp, "t.md")
+    out = os.path.join(tmp, "t.pdf")
+    with open(src, "w") as f:
+        f.write("# Title\n\nSome content.")
+    res = registry.convert("md", "pdf", src, out, {})
+    assert res.ok, res.error
+    assert os.path.exists(out)
+    assert os.path.getsize(out) > 0
+    with open(out, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_txt_to_pdf_via_md():
+    tmp = tempfile.mkdtemp()
+    src = os.path.join(tmp, "t.txt")
+    out = os.path.join(tmp, "t.pdf")
+    with open(src, "w") as f:
+        f.write("Hello world\nSecond line")
+    res = registry.convert("txt", "pdf", src, out, {})
+    assert res.ok, res.error
+    assert os.path.exists(out)
+    assert os.path.getsize(out) > 0
+    with open(out, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_html_to_txt():
+    tmp = tempfile.mkdtemp()
+    src = os.path.join(tmp, "t.html")
+    out = os.path.join(tmp, "t.txt")
+    with open(src, "w") as f:
+        f.write("<h1>Hello</h1><p>World</p>")
+    res = registry.convert("html", "txt", src, out, {})
+    assert res.ok, res.error
+    assert os.path.exists(out)
+    with open(out) as f:
+        content = f.read()
+    assert "Hello" in content

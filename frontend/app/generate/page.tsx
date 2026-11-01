@@ -7,6 +7,7 @@ import {
   runAsyncJob,
   listTemplates,
   downloadFile,
+  getToken,
 } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
 import { TemplateForm } from "@/app/generate/components/TemplateForm";
 import { TemplatePreview } from "@/app/generate/components/TemplatePreview";
 import { TEMPLATES, type TemplateBlock } from "@/lib/templates";
+import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +62,7 @@ export default function GeneratePage() {
 }
 
 function GeneratePageContent() {
+  const router = useRouter();
   const [blocks, setBlocks] = useState<Block[]>(INITIAL_BLOCKS);
   const [undoStack, setUndoStack] = useState<Block[][]>([]);
   const [redoStack, setRedoStack] = useState<Block[][]>([]);
@@ -73,13 +76,18 @@ function GeneratePageContent() {
   const [templateName, setTemplateName] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       setTemplateName(params.get("template"));
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
+    if (!getToken()) return;
     listTemplates().then((r: any) => setTemplates(r.templates || [])).catch(() => {});
   }, []);
 

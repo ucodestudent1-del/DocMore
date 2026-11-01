@@ -1,4 +1,4 @@
-"""HTML conversion engine using beautifulsoup4."""
+"""HTML conversion engine using beautifulsoup4 and reportlab."""
 
 import os
 from typing import Any
@@ -30,10 +30,8 @@ class HtmlConverter(ConverterEngine):
             if target_ext == "pdf":
                 if source_ext == "txt":
                     return self._txt_to_pdf(source_path, target_path)
-                return ConversionResult(
-                    ok=False, error="HTML to PDF requires reportlab rendering (engine: generation)",
-                    engine=self.name, status="not_implemented",
-                )
+                # HTML -> PDF: extract text blocks and render via reportlab
+                return self._html_to_pdf(source_path, target_path)
             if target_ext == "html":
                 return self._copy(source_path, target_path)
             if target_ext in {"csv", "xlsx", "json"}:
@@ -86,6 +84,38 @@ class HtmlConverter(ConverterEngine):
         text = soup.get_text("\n", strip=True)
         with open(target_path, "w", encoding="utf-8") as f:
             f.write(text)
+        return ConversionResult(ok=True, output_path=target_path, engine=self.name)
+
+    def _html_to_pdf(self, source_path: str, target_path: str) -> ConversionResult:
+        """Render HTML to PDF using reportlab."""
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        with open(source_path, "r", encoding="utf-8", errors="replace") as f:
+            soup = BeautifulSoup(f, "html.parser")
+        for tag in soup(["script", "style"]):
+            tag.decompose()
+
+        styles = getSampleStyleSheet()
+        doc = SimpleDocTemplate(target_path, pagesize=letter)
+        story = []
+
+        for el in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li"]):
+            text = el.get_text(" ", strip=True)
+            if not text:
+                continue
+            if el.name.startswith("h"):
+                level = int(el.name[1])
+                style_name = f"Heading{min(level, 4)}"
+                story.append(Paragraph(text, styles[style_name]))
+            elif el.name == "li":
+                story.append(Paragraph(f"• {text}", styles["Normal"]))
+            else:
+                story.append(Paragraph(text, styles["Normal"]))
+            story.append(Spacer(1, 6))
+
+        doc.build(story)
         return ConversionResult(ok=True, output_path=target_path, engine=self.name)
 
     def _txt_to_pdf(self, source_path: str, target_path: str) -> ConversionResult:

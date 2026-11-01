@@ -80,3 +80,29 @@ def test_unsupported_format():
     res = render_blocks(_blocks(), "xyz", out)
     assert res.ok is False
     assert res.error is not None
+
+
+def test_generate_odt():
+    tmp = tempfile.mkdtemp()
+    out = os.path.join(tmp, "out.odt")
+    res = render_blocks(_blocks(), "odt", out)
+    assert res.ok, res.error
+    assert os.path.exists(out)
+    assert os.path.getsize(out) > 0
+    # Verify it's a valid ZIP with mimetype
+    import zipfile
+    with zipfile.ZipFile(out) as z:
+        names = z.namelist()
+        assert "mimetype" in names
+        assert "content.xml" in names
+        mimetype = z.read("mimetype").decode("utf-8")
+        assert "opendocument.text" in mimetype
+
+
+def test_generate_pdf_with_headers_footers():
+    tmp = tempfile.mkdtemp()
+    out = os.path.join(tmp, "out.pdf")
+    res = render_blocks(_blocks(), "pdf", out, header="My Header", footer="My Footer")
+    assert res.ok, res.error
+    assert os.path.exists(out)
+    assert os.path.getsize(out) > 0

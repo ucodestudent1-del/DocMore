@@ -1,12 +1,45 @@
-export const API_BASE = (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE)
-  ? process.env.NEXT_PUBLIC_API_BASE
-  : "/api";
+const TOKEN_KEY = "ud_auth_token";
+
+const rawBase =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE
+    ? process.env.NEXT_PUBLIC_API_BASE
+    : "/api";
+
+// Ensure the base always ends with /api so endpoints resolve correctly
+const API_BASE = rawBase.replace(/\/+$/, "") + (rawBase.endsWith("/api") ? "" : "/api");
+
+export { API_BASE };
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function authHeaders(): HeadersInit {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export async function apiRequest(input: RequestInfo | URL, init?: RequestInit) {
-  const res = await fetch(input, {
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-    ...init,
-  });
+  const headers: HeadersInit = { "Content-Type": "application/json", ...(init?.headers || {}), ...authHeaders() };
+  const res = await fetch(input, { headers, ...init });
+  if (res.status === 401) {
+    clearToken();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw new Error("Authentication required");
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Request failed ${res.status}`);
@@ -19,7 +52,7 @@ export async function apiRequest(input: RequestInfo | URL, init?: RequestInit) {
 export async function uploadFile(file: File) {
   const fd = new FormData();
   fd.append("file", file);
-  const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
+  const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd, headers: authHeaders() });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Upload failed ${res.status}`);
@@ -83,11 +116,10 @@ export async function pdfPageNumbers(fileId: string, position: string) {
 }
 
 export async function pdfCompress(fileId: string) {
-  const fd = new FormData();
-  fd.append("file_id", fileId);
-  const res = await fetch(`${API_BASE}/pdf/compress`, { method: "POST", body: fd });
-  if (!res.ok) throw new Error("Compress failed");
-  return res.json();
+  return apiRequest(`${API_BASE}/pdf/compress`, {
+    method: "POST",
+    body: JSON.stringify({ file_id: fileId }),
+  });
 }
 
 export async function pdfMetadata(fileId: string, metadata: Record<string, string>) {
@@ -127,11 +159,10 @@ export async function pdfUnlock(fileId: string, password: string) {
 }
 
 export async function pdfExtractText(fileId: string) {
-  const fd = new FormData();
-  fd.append("file_id", fileId);
-  const res = await fetch(`${API_BASE}/pdf/extract-text`, { method: "POST", body: fd });
-  if (!res.ok) throw new Error("Extract text failed");
-  return res.json();
+  return apiRequest(`${API_BASE}/pdf/extract-text`, {
+    method: "POST",
+    body: JSON.stringify({ file_id: fileId }),
+  });
 }
 
 export async function generateDocument(blocks: any[], format: string, data?: Record<string, any>, pageSize = "letter", orientation = "portrait", margins?: any) {
@@ -155,7 +186,7 @@ export async function listTemplates() {
 export async function imagesToPdf(files: File[]) {
   const fd = new FormData();
   for (const f of files) fd.append("files", f);
-  const res = await fetch(`${API_BASE}/pdf/images-to-pdf`, { method: "POST", body: fd });
+  const res = await fetch(`${API_BASE}/pdf/images-to-pdf`, { method: "POST", body: fd, headers: authHeaders() });
   if (!res.ok) throw new Error("Images to PDF failed");
   return res.json();
 }
@@ -164,7 +195,36 @@ export async function pdfEncryptCheck(fileId: string) {
   return apiRequest(`${API_BASE}/pdf/encrypted/${encodeURIComponent(fileId)}`);
 }
 
+/* ---- Auth helpers ---- */
+
+export async function registerUser(username: string, email: string, password: string) {
+  return apiRequest(`${API_BASE}/auth/register`, {
+    method: "POST",
+    body: JSON.stringify({ username, email, password }),
+  });
+}
+
+export async function loginUser(username: string, password: string) {
+  const res = await apiRequest(`${API_BASE}/auth/token`, {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+  if (res.access_token) {
+    setToken(res.access_token);
+  }
+  return res;
+}
+
+export async function fetchMe() {
+  return apiRequest(`${API_BASE}/auth/me`);
+}
+
+export function logout() {
+  clearToken();
+}
+
 /* ---- Async job helpers ---- */
+
 export async function pollJob(jobId: string, opts: { intervalMs?: number; timeoutMs?: number } = {}) {
   const intervalMs = opts.intervalMs ?? 500;
   const timeoutMs = opts.timeoutMs ?? 60000;

@@ -5,6 +5,7 @@ Supports export to PDF, DOCX, ODT, HTML, Markdown, TXT.
 
 import os
 import zipfile
+from datetime import datetime
 from typing import Any, List, Optional
 
 from docx import Document
@@ -13,7 +14,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.units import inch
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
-                                TableStyle, PageBreak, Image as RLImage)
+                                TableStyle, PageBreak, Image as RLImage,
+                                BaseDocTemplate, Frame, PageTemplate)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
@@ -68,11 +70,13 @@ class HorizontalRuleBlock(Block):
 
 def render_blocks(blocks: List[Block], fmt: str, output_path: str,
                   page_size: str = "letter", orientation: str = "portrait",
-                  margins: Optional[dict] = None) -> ConversionResult:
+                  margins: Optional[dict] = None,
+                  header: Optional[str] = None, footer: Optional[str] = None) -> ConversionResult:
     """Render a list of blocks to the requested format."""
     try:
         if fmt == "pdf":
-            return _render_pdf(blocks, output_path, page_size, orientation, margins)
+            return _render_pdf(blocks, output_path, page_size, orientation, margins,
+                               header=header, footer=footer)
         if fmt == "docx":
             return _render_docx(blocks, output_path)
         if fmt == "odt":
@@ -104,7 +108,8 @@ class HRFlowable(Flowable):
 # PDF (reportlab)
 # ---------------------------------------------------------------------------
 def _render_pdf(blocks: List[Block], output_path: str, page_size: str,
-                orientation: str, margins: Optional[dict]) -> ConversionResult:
+                orientation: str, margins: Optional[dict],
+                header: Optional[str] = None, footer: Optional[str] = None) -> ConversionResult:
     psize = PAGE_SIZES.get(page_size, letter)
     if orientation == "landscape":
         psize = (psize[1], psize[0])
@@ -160,9 +165,22 @@ def _render_pdf(blocks: List[Block], output_path: str, page_size: str,
         elif isinstance(block, HorizontalRuleBlock):
             story.append(HRFlowable())
 
-    doc = SimpleDocTemplate(output_path, pagesize=psize,
-                            leftMargin=left, rightMargin=right,
-                            topMargin=top, bottomMargin=bottom)
+    def _on_page(canvas, doc):
+        canvas.saveState()
+        if header:
+            canvas.setFont("Helvetica", 9)
+            canvas.drawCentredString(psize[0] / 2, psize[1] - 0.5 * inch, header)
+        if footer:
+            canvas.setFont("Helvetica", 9)
+            canvas.drawCentredString(psize[0] / 2, 0.5 * inch, footer)
+        canvas.restoreState()
+
+    frame = Frame(left, bottom, psize[0] - left - right, psize[1] - top - bottom, id='main')
+    template = PageTemplate(id='page', frames=[frame], onPage=_on_page)
+    doc = BaseDocTemplate(output_path, pagesize=psize,
+                          leftMargin=left, rightMargin=right,
+                          topMargin=top, bottomMargin=bottom)
+    doc.addPageTemplates([template])
     doc.build(story)
     return ConversionResult(ok=True, output_path=output_path, engine="generation")
 
@@ -200,27 +218,154 @@ def _render_docx(blocks: List[Block], output_path: str) -> ConversionResult:
 
 
 # ---------------------------------------------------------------------------
-# ODT (repackage DOCX as ODT package)
+# ODT (proper OASIS OpenDocument Text)
 # ---------------------------------------------------------------------------
 def _render_odt(blocks: List[Block], output_path: str) -> ConversionResult:
-    tmp_docx = output_path + ".tmp.docx"
-    res = _render_docx(blocks, tmp_docx)
-    if not res.ok:
-        return res
+    """Render blocks to a proper ODT (OpenDocument Text) file."""
     try:
+        content_xml = _build_odt_content(blocks)
+        styles_xml = _build_odt_styles()
+        meta_xml = _build_odt_meta()
+        settings_xml = _build_odt_settings()
+
         with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as z:
-            z.writestr("mimetype", "application/vnd.oasis.opendocument.text",
-                       compress_type=zipfile.ZIP_STORED)
-            with zipfile.ZipFile(tmp_docx, "r") as src:
-                for item in src.infolist():
-                    z.writestr(item.filename, src.read(item.filename))
-    finally:
-        try:
-            os.remove(tmp_docx)
-        except OSError:
-            pass
-    return ConversionResult(ok=True, output_path=output_path, engine="generation",
-                            status="partial", notes="ODT repackaged from DOCX")
+            # mimetype must be first and uncompressed
+            z.writestr("mimetype", "application/vnd.oasis.opendocument.text", compress_type=zipfile.ZIP_STORED)
+            z.writestr("content.xml", content_xml)
+            z.writestr("styles.xml", styles_xml)
+            z.writestr("meta.xml", meta_xml)
+            z.writestr("settings.xml", settings_xml)
+
+        return ConversionResult(ok=True, output_path=output_path, engine="generation")
+    except Exception as exc:  # noqa: BLE001
+        return ConversionResult(ok=False, error=str(exc))
+
+
+def _escape_xml(text: str) -> str:
+    return (text.replace("&", "&amp;").replace("<", "&lt;")
+             .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _build_odt_content(blocks: List[Block]) -> str:
+    parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"',
+        '                      xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"',
+        '                      xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"',
+        '                      xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"',
+        '                      xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"',
+        '                      xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"',
+        '                      xmlns:xlink="http://www.w3.org/1999/xlink"',
+        '                      office:version="1.2">',
+        '  <office:body>',
+        '    <office:text>',
+    ]
+
+    for block in blocks:
+        if isinstance(block, HeadingBlock):
+            level = min(block.level, 6)
+            parts.append(f'      <text:p text:style-name="Heading{level}">{_escape_xml(block.text)}</text:p>')
+        elif isinstance(block, ParagraphBlock):
+            align = block.align
+            style_name = f"Para{align.capitalize()}" if align != "left" else "ParaLeft"
+            parts.append(f'      <text:p text:style-name="{style_name}">{_escape_xml(block.text)}</text:p>')
+        elif isinstance(block, ListBlock):
+            for item in block.items:
+                marker = "1." if block.ordered else "•"
+                parts.append(f'      <text:p text:style-name="List">{_escape_xml(marker + " " + item)}</text:p>')
+        elif isinstance(block, TableBlock):
+            parts.append('      <table:table table:name="Table1">')
+            for i, row in enumerate(block.rows):
+                parts.append('        <table:table-row>')
+                for cell in row:
+                    parts.append(f'          <table:table-cell><text:p>{_escape_xml(cell)}</text:p></table:table-cell>')
+                parts.append('        </table:table-row>')
+            parts.append('      </table:table>')
+        elif isinstance(block, ImageBlock):
+            parts.append(f'      <text:p>{_escape_xml("[Image: " + (block.path or "") + "]")}</text:p>')
+        elif isinstance(block, PageBreakBlock):
+            parts.append('      <text:p text:style-name="PageBreak"><text:soft-page-break/></text:p>')
+        elif isinstance(block, HorizontalRuleBlock):
+            parts.append('      <text:p text:style-name="HorizontalRule">---</text:p>')
+
+    parts.extend([
+        '    </office:text>',
+        '  </office:body>',
+        '</office:document>',
+    ])
+    return "\n".join(parts)
+
+
+def _build_odt_styles() -> str:
+    return '''<?xml version="1.0" encoding="UTF-8"?>
+<office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                        xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+                        xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+                        xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
+                        office:version="1.2">
+  <office:automatic-styles>
+    <style:style style:name="ParaLeft" style:family="paragraph">
+      <style:paragraph-properties fo:text-align="left" />
+    </style:style>
+    <style:style style:name="ParaCenter" style:family="paragraph">
+      <style:paragraph-properties fo:text-align="center" />
+    </style:style>
+    <style:style style:name="ParaRight" style:family="paragraph">
+      <style:paragraph-properties fo:text-align="right" />
+    </style:style>
+    <style:style style:name="Heading1" style:family="paragraph">
+      <style:paragraph-properties fo:font-size="18pt" fo:font-weight="bold" />
+    </style:style>
+    <style:style style:name="Heading2" style:family="paragraph">
+      <style:paragraph-properties fo:font-size="14pt" fo:font-weight="bold" />
+    </style:style>
+    <style:style style:name="Heading3" style:family="paragraph">
+      <style:paragraph-properties fo:font-size="12pt" fo:font-weight="bold" />
+    </style:style>
+    <style:style style:name="Heading4" style:family="paragraph">
+      <style:paragraph-properties fo:font-size="11pt" fo:font-weight="bold" />
+    </style:style>
+    <style:style style:name="Heading5" style:family="paragraph">
+      <style:paragraph-properties fo:font-size="10pt" fo:font-weight="bold" />
+    </style:style>
+    <style:style style:name="Heading6" style:family="paragraph">
+      <style:paragraph-properties fo:font-size="9pt" fo:font-weight="bold" />
+    </style:style>
+    <style:style style:name="List" style:family="paragraph">
+      <style:paragraph-properties fo:margin-left="0.5in" />
+    </style:style>
+    <style:style style:name="PageBreak" style:family="paragraph">
+      <style:paragraph-properties fo:break-after="page" />
+    </style:style>
+    <style:style style:name="HorizontalRule" style:family="paragraph">
+      <style:paragraph-properties fo:border-bottom="0.5pt solid #000000" fo:padding-bottom="2pt" />
+    </style:style>
+  </office:automatic-styles>
+</office:document-styles>'''
+
+
+def _build_odt_meta() -> str:
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                      xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"
+                      xmlns:dc="http://purl.org/dc/elements/1.1/"
+                      office:version="1.2">
+  <office:meta>
+    <meta:generator>Universal Document Studio</meta:generator>
+    <dc:date>{now}</dc:date>
+  </office:meta>
+</office:document-meta>'''
+
+
+def _build_odt_settings() -> str:
+    return '''<?xml version="1.0" encoding="UTF-8"?>
+<office:document-settings xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                          xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0"
+                          office:version="1.2">
+  <office:settings>
+  </office:settings>
+</office:document-settings>'''
 
 
 # ---------------------------------------------------------------------------

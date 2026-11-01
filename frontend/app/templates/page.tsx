@@ -1,6 +1,7 @@
 "use client";
 
-
+import { useEffect, useState } from "react";
+import { getToken } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,13 @@ import { TEMPLATES } from "@/lib/templates";
 
 export default function TemplatesPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
+  }, [router]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -38,4 +46,3 @@ export default function TemplatesPage() {
     </div>
   );
 }
-

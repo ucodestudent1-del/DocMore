@@ -1,7 +1,6 @@
 "use client";
 
-
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   uploadFile,
   pdfMerge,
@@ -16,6 +15,7 @@ import {
   imagesToPdf,
   runAsyncJob,
   downloadFile,
+  getToken,
 } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
@@ -37,6 +37,7 @@ import {
   Scan,
   Globe,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 function FilePicker({ accept, onPicked }: { accept: string; onPicked: (id: string, name: string) => void }) {
   const [name, setName] = useState<string>("");
@@ -64,22 +65,23 @@ function FilePicker({ accept, onPicked }: { accept: string; onPicked: (id: strin
   );
 }
 
-function MultiFilePicker({ onPicked }: { onPicked: (ids: string[], files: File[], names: string[]) => void }) {
+function MultiFilePicker({ accept, onPicked }: { accept: string; onPicked: (ids: string[], names: string[]) => void }) {
   const [names, setNames] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setNames(files.map((f) => f.name));
-    const fd = new FormData();
-    for (const f of files) fd.append("file", f);
-    fetch("/api/upload", { method: "POST", body: fd })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("upload failed");
-        return res.json();
-      })
-      .then((r: any) => onPicked([r.id], files, names))
-      .catch((e: any) => toast({ title: "Upload failed", description: e.message }));
+    try {
+      const ids: string[] = [];
+      for (const f of files) {
+        const r = await uploadFile(f);
+        ids.push(r.id);
+      }
+      onPicked(ids, names);
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e.message });
+    }
   };
   return (
     <div className="space-y-3">
@@ -87,9 +89,9 @@ function MultiFilePicker({ onPicked }: { onPicked: (ids: string[], files: File[]
         className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:bg-accent/50 cursor-pointer"
         onClick={() => inputRef.current?.click()}
       >
-        <input ref={inputRef} type="file" className="hidden" accept=".pdf" multiple onChange={onChange} />
+        <input ref={inputRef} type="file" className="hidden" accept={accept} multiple onChange={onChange} />
         <Plus className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-        <p className="text-sm">Upload PDFs</p>
+        <p className="text-sm">Upload file(s)</p>
       </div>
       {names.length > 0 && (
         <p className="text-xs text-muted-foreground">{names.join(", ")}</p>
@@ -116,10 +118,20 @@ const OCR_LANGS = [
 ];
 
 export default function PdfToolsPage() {
+  const router = useRouter();
   const [result, setResult] = useState<{ id: string; ext: string; name: string } | null>(null);
   const [pdfPassword, setPdfPassword] = useState("");
   const [pdfFileId, setPdfFileId] = useState<string | null>(null);
   const [ocrLang, setOcrLang] = useState("eng");
+  const [imgNames, setImgNames] = useState<string[]>([]);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
+  }, [router]);
 
   const download = (id: string) => {
     window.location.href = downloadFile(id);
@@ -154,7 +166,7 @@ export default function PdfToolsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">Combine multiple PDFs into one document.</p>
-              <MultiFilePicker onPicked={async (ids) => {
+              <MultiFilePicker accept=".pdf" onPicked={async (ids) => {
                 try {
                   const r = await runAsyncJob(() => pdfMerge(ids));
                   setResult({ id: r.id, ext: r.ext, name: r.name || "merged.pdf" });
@@ -367,14 +379,29 @@ export default function PdfToolsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">Convert one or more images into a single PDF.</p>
-              <MultiFilePicker onPicked={async (_ids, files) => {
-                try {
-                  const r = await runAsyncJob(() => imagesToPdf(files));
-                  setResult({ id: r.id, ext: r.ext, name: r.name || "images.pdf" });
-                } catch (e: any) {
-                  toast({ title: "Images → PDF failed", description: e.message });
-                }
-              }} />
+              <div className="space-y-3">
+                <div
+                  className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:bg-accent/50 cursor-pointer"
+                  onClick={() => imgInputRef.current?.click()}
+                >
+                  <input ref={imgInputRef} type="file" className="hidden" accept=".png,.jpg,.jpeg,.webp,.gif,.bmp,.tiff" multiple onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length === 0) return;
+                    setImgNames(files.map((f) => f.name));
+                    try {
+                      const r = await runAsyncJob(() => imagesToPdf(files));
+                      setResult({ id: r.id, ext: r.ext, name: r.name || "images.pdf" });
+                    } catch (e: any) {
+                      toast({ title: "Images → PDF failed", description: e.message });
+                    }
+                  }} />
+                  <Plus className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm">Upload images</p>
+                </div>
+                {imgNames.length > 0 && (
+                  <p className="text-xs text-muted-foreground">{imgNames.join(", ")}</p>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-2">Select images; backend assembles them into a PDF.</p>
             </CardContent>
           </Card>
@@ -405,4 +432,3 @@ export default function PdfToolsPage() {
     </div>
   );
 }
-

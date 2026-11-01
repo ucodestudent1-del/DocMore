@@ -1,22 +1,28 @@
 "use client";
 
-
 import { useEffect, useState } from "react";
+import { getToken } from "@/lib/api";
 import { listHistory } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
     listHistory(50).then((r: any) => {
       setHistory(r.history || []);
       setLoading(false);
     });
-  }, []);
+  }, [router]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -65,4 +71,3 @@ export default function HistoryPage() {
     </div>
   );
 }
-

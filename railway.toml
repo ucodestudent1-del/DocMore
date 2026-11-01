@@ -1,8 +1,9 @@
 [build]
 builder = "DOCKERFILE"
+dockerfilePath = "./backend/Dockerfile"
 
 [deploy]
-startCommand = "sh -c 'cd /app/backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'"
+startCommand = "sh -c 'cd /app && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'"
 healthcheckPath = "/api/health"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 10
@@ -10,6 +11,6 @@ restartPolicyMaxRetries = 10
 [env]
 REDIS_URL = "redis://redis:6379/0"
 MAX_FILE_SIZE = "52428800"
-SECRET_KEY = "change-me-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+PORT = "8000"

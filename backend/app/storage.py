@@ -47,6 +47,16 @@ class Storage:
                 items = [e for e in items if e.get("user_id") == user_id]
             return list(items[:limit])
 
+    def get_file_entry(self, file_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Find a history entry by file id, optionally filtered by user_id."""
+        with _lock:
+            for entry in self._history:
+                if entry.get("id") == file_id:
+                    if user_id is not None and entry.get("user_id") != user_id:
+                        return None
+                    return entry
+            return None
+
     # --- uploads -----------------------------------------------------
     def save_upload(self, file_bytes: bytes, original_name: str, user_id: Optional[str] = None) -> Dict[str, Any]:
         from app.security import validate_upload

@@ -1,4 +1,4 @@
-"""Markdown conversion engine using the markdown package + python-docx."""
+"""Markdown conversion engine using the markdown package + python-docx + reportlab."""
 
 import os
 import json
@@ -31,10 +31,7 @@ class MarkdownConverter(ConverterEngine):
             if target_ext == "docx":
                 return self._md_to_docx(source_path, target_path)
             if target_ext == "pdf":
-                return ConversionResult(
-                    ok=False, error="Markdown to PDF requires reportlab rendering (engine: generation)",
-                    engine=self.name, status="not_implemented",
-                )
+                return self._md_to_pdf(source_path, target_path)
             if source_ext == "txt" and target_ext in {"md", "html", "pdf", "docx"}:
                 return self._txt_to(source_path, target_path, target_ext)
             return ConversionResult(
@@ -61,6 +58,38 @@ class MarkdownConverter(ConverterEngine):
         plain = soup.get_text("\n", strip=True)
         with open(target_path, "w", encoding="utf-8") as f:
             f.write(plain)
+        return ConversionResult(ok=True, output_path=target_path, engine=self.name)
+
+    def _md_to_pdf(self, source_path: str, target_path: str) -> ConversionResult:
+        """Render Markdown to PDF via HTML extraction + reportlab."""
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        with open(source_path, "r", encoding="utf-8") as f:
+            text = f.read()
+        html_body = md_lib.markdown(text, extensions=["extra"])
+        soup = BeautifulSoup(html_body, "html.parser")
+
+        styles = getSampleStyleSheet()
+        doc = SimpleDocTemplate(target_path, pagesize=letter)
+        story = []
+
+        for el in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li"]):
+            t = el.get_text(" ", strip=True)
+            if not t:
+                continue
+            if el.name.startswith("h"):
+                level = int(el.name[1])
+                style_name = f"Heading{min(level, 4)}"
+                story.append(Paragraph(t, styles[style_name]))
+            elif el.name == "li":
+                story.append(Paragraph(f"• {t}", styles["Normal"]))
+            else:
+                story.append(Paragraph(t, styles["Normal"]))
+            story.append(Spacer(1, 6))
+
+        doc.build(story)
         return ConversionResult(ok=True, output_path=target_path, engine=self.name)
 
     def _md_to_docx(self, source_path: str, target_path: str) -> ConversionResult:
@@ -95,6 +124,32 @@ class MarkdownConverter(ConverterEngine):
         if target_ext == "md":
             with open(target_path, "w", encoding="utf-8") as f:
                 f.write(text)
+            return ConversionResult(ok=True, output_path=target_path, engine=self.name)
+        if target_ext == "html":
+            html_body = md_lib.markdown(text)
+            html = f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{html_body}</body></html>"
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(html)
+            return ConversionResult(ok=True, output_path=target_path, engine=self.name)
+        if target_ext == "pdf":
+            from reportlab.lib.pagesizes import letter
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+            styles = getSampleStyleSheet()
+            doc = SimpleDocTemplate(target_path, pagesize=letter)
+            story = []
+            for para in text.split("\n"):
+                story.append(Paragraph(para, styles["Normal"]))
+                story.append(Spacer(1, 4))
+            doc.build(story)
+            return ConversionResult(ok=True, output_path=target_path, engine=self.name)
+        if target_ext == "docx":
+            from docx import Document
+            doc = Document()
+            for para in text.split("\n"):
+                if para.strip():
+                    doc.add_paragraph(para)
+            doc.save(target_path)
             return ConversionResult(ok=True, output_path=target_path, engine=self.name)
         return ConversionResult(ok=False, error=f"txt to {target_ext} not supported",
                                 engine=self.name, status="not_implemented")

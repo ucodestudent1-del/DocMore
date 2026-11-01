@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +12,7 @@ import {
   listFormats,
   convertOptions,
   conversionsForSource,
+  getToken,
 } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
@@ -28,6 +28,7 @@ import {
   Plus,
   ArrowRight,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const ConvertSchema = z.object({
   target: z.string().min(1),
@@ -76,6 +77,8 @@ const RECOMMENDED_TARGETS: Record<string, string> = {
 };
 
 export default function ConvertPage() {
+  const router = useRouter();
+
   const [formats, setFormats] = useState<any>([]);
   const [sourceFile, setSourceFile] = useState<any>(null);
   const [targets, setTargets] = useState<string[]>([]);
@@ -87,12 +90,19 @@ export default function ConvertPage() {
   const fileInput = useRef<any>(null);
 
   useEffect(() => {
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
     listFormats().then((r: any) => {
       setFormats(r.formats || []);
+    }).catch(() => {
+      toast({ title: "Error", description: "Failed to load formats" });
     });
-  }, []);
+  }, [router]);
 
   useEffect(() => {
+    if (!getToken()) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "o") {
         e.preventDefault();
@@ -109,6 +119,7 @@ export default function ConvertPage() {
   });
 
   const handlePick = useCallback(async (file: File) => {
+    if (!getToken()) return;
     try {
       const r = await uploadFile(file);
       setSourceFile({
@@ -125,7 +136,6 @@ export default function ConvertPage() {
         const res: any = await conversionsForSource(r.ext);
         const supported = res?.targets || [];
         setTargets(supported);
-        // Auto-select recommended target if supported
         const recommended = RECOMMENDED_TARGETS[r.ext];
         if (recommended && supported.includes(recommended)) {
           setRecommendedTarget(recommended);
@@ -318,4 +328,3 @@ export default function ConvertPage() {
     </div>
   );
 }
-
