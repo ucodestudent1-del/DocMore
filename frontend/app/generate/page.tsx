@@ -1,6 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
@@ -393,3 +392,4 @@ function BlockEditor({ block, onUpdate, onRemove }: { block: Block; onUpdate: (i
     </div>
   );
 }
+

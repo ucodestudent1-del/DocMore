@@ -1,6 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
 
 import { useState, useRef } from "react";
 import {
@@ -406,3 +405,4 @@ export default function PdfToolsPage() {
     </div>
   );
 }
+

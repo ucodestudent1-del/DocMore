@@ -1,6 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
@@ -319,3 +318,4 @@ export default function ConvertPage() {
     </div>
   );
 }
+
