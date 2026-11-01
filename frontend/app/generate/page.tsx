@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   generateDocument,
   generateTemplate,
@@ -71,12 +70,14 @@ function GeneratePageContent() {
   const [result, setResult] = useState<{ id: string; ext: string; name: string } | null>(null);
   const [templates, setTemplates] = useState<string[]>([]);
   const [templateLoaded, setTemplateLoaded] = useState(false);
-  const searchParams = useSearchParams();
   const [templateName, setTemplateName] = useState<string | null>(null);
 
   useEffect(() => {
-    setTemplateName(searchParams.get("template"));
-  }, [searchParams]);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      setTemplateName(params.get("template"));
+    }
+  }, []);
 
   useEffect(() => {
     listTemplates().then((r: any) => setTemplates(r.templates || [])).catch(() => {});
