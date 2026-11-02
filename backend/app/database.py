@@ -2,9 +2,9 @@
 
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import declarative_base
 
 from app.config import DATABASE_URL
+from app.models import Base
 
 # Ensure the asyncpg dialect is used for create_async_engine
 if DATABASE_URL.startswith("postgresql://"):
@@ -25,9 +25,6 @@ async_session = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
-
-# Base class for all models
-Base = declarative_base()
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
