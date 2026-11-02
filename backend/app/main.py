@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.types import Scope
 from app.api.routes import (
     upload,
     convert,
@@ -81,14 +82,19 @@ async def health():
 # Serve Next.js frontend static files (built into /app/frontend/out)
 FRONTEND_DIR = Path(os.environ.get("FRONTEND_DIR", str(Path(__file__).resolve().parent.parent.parent / "frontend" / "out")))
 if FRONTEND_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
-    @app.get("/{full_path:path}")
-    async def serve_frontend(full_path: str):
-        index = FRONTEND_DIR / "index.html"
-        if index.exists():
-            return FileResponse(str(index))
-        return {"detail": "Not Found"}
+    class SPAStaticFiles(StaticFiles):
+        """StaticFiles that falls back to index.html for SPA routing (Next.js export)."""
+
+        async def get_response(self, path: str, scope: Scope):
+            response = await super().get_response(path, scope)
+            if response.status_code == 404:
+                index = FRONTEND_DIR / "index.html"
+                if index.exists():
+                    return FileResponse(str(index))
+            return response
+
+    app.mount("/", SPAStaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 else:
     @app.get("/")
     async def root():
