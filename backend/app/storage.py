@@ -173,6 +173,9 @@ class Storage:
 
 storage = Storage()
 
+# Load any previously persisted history so uploads/outputs survive restarts.
+_load_history()
+
 
 # Expose module-level items for auth module
 __all__ = ["Storage", "storage", "_history", "_save_history", "_lock"]

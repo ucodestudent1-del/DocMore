@@ -1,7 +1,5 @@
 """API routes: PDF toolkit (async via job queue)."""
 
-import os
-import tempfile
 import secrets
 from pathlib import Path
 from typing import List, Optional
@@ -10,7 +8,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from pydantic import BaseModel
 
 from app.storage import storage
-from app.jobs import enqueue, get_job
+from app.jobs import enqueue
 from app.config import OUTPUT_DIR
 from app.api.routes.auth import get_current_user
 
@@ -179,7 +177,9 @@ def pdf_metadata(req: MetadataRequest, current_user: dict = Depends(get_current_
     res = pdf_tools.set_metadata(src, out_path, req.metadata)
     if not res.ok:
         raise HTTPException(status_code=422, detail=res.error)
-    storage.save_output(out_id, open(out_path, "rb").read(), "pdf", user_id=current_user["username"])
+    with open(out_path, "rb") as f:
+        data = f.read()
+    storage.save_output(out_id, data, "pdf", user_id=current_user["username"])
     return {"id": out_id, "ext": "pdf"}
 
 
@@ -234,17 +234,10 @@ def pdf_ocr(file_id: str = Form(...), lang: str = Form("eng"), current_user: dic
 
 @router.post("/pdf/images-to-pdf")
 def pdf_images_to_pdf(files: List[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
-    import tempfile
     paths = []
     for f in files:
         content = f.read()
-        p = Path(tempfile.gettempdir()) / f"ud_{os.urandom(8).hex()}_{f.filename}"
-        p.write_bytes(content)
-        paths.append(str(p))
+        entry = storage.save_upload(content, f.filename or "file", user_id=current_user["username"])
+        paths.append(entry["path"])
     job_id = enqueue("pdf_tool", "images_to_pdf", paths=paths, user_id=current_user["username"])
     return {"job_id": job_id, "status": "queued"}
-
-
-@router.get("/jobs/{job_id}")
-def job_status(job_id: str):
-    return get_job(job_id)

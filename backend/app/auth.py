@@ -1,49 +1,30 @@
-"""Authentication utilities: password hashing, JWT tokens, current user dependency."""
+"""Authentication utilities: password hashing, JWT tokens, current user dependency.
+
+User accounts are stored in PostgreSQL (SQLAlchemy async).  The legacy in-memory
+_USERS dict is removed; all lookups/mutations go through the database so the admin
+panel, stats, and data isolation all operate on a single source of truth.
+"""
 
 import bcrypt
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict
+from typing import Optional
 
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.database import async_session, get_db
+from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
+
 # ---------------------------------------------------------------------------
-# In-memory user store
+# Pure crypto helpers (no DB)
 # ---------------------------------------------------------------------------
-_USERS: Dict[str, dict] = {}
-
-
-def _save_users() -> None:
-    """Persist users to storage history."""
-    from app.storage import storage, _history, _save_history
-    for uid, u in _USERS.items():
-        entry = {
-            "id": f"user_{uid}",
-            "user_id": uid,
-            "original_name": u["username"],
-            "stored_name": u["username"],
-            "path": u["hashed_password"],
-            "mime": "application/json",
-            "ext": "json",
-            "size": 0,
-            "kind": "user",
-            "ts": u.get("created_at", 0),
-        }
-        found = False
-        for i, e in enumerate(_history):
-            if e.get("id") == f"user_{uid}":
-                _history[i] = entry
-                found = True
-                break
-        if not found:
-            _history.insert(0, entry)
-    _save_history()
-
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
@@ -81,55 +62,152 @@ def verify_token(token: str) -> Optional[str]:
         return None
 
 
-def get_user_by_username(username: str) -> Optional[dict]:
-    """Get user by username from in-memory store."""
-    return _USERS.get(username)
+# ---------------------------------------------------------------------------
+# DB-backed user store
+# ---------------------------------------------------------------------------
+
+def _user_to_dict(user: User) -> dict:
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "hashed_password": user.hashed_password,
+        "tier": user.tier,
+        "role": user.role,
+        "is_verified": user.is_verified,
+        "created_at": user.created_at.timestamp() if user.created_at else None,
+    }
 
 
-def get_user_by_email(email: str) -> Optional[dict]:
-    """Get user by email from in-memory store."""
-    for u in _USERS.values():
-        if u.get("email") == email:
-            return u
-    return None
+async def get_user_by_username(db: AsyncSession, username: str) -> Optional[dict]:
+    """Get user by username from the database."""
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    return _user_to_dict(user) if user else None
+
+
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[dict]:
+    """Get user by email from the database."""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    return _user_to_dict(user) if user else None
 
 
 async def create_user(username: str, email: str, password: str, tier: str = "free") -> Optional[dict]:
-    """Create a new user."""
-    if username in _USERS:
-        return None
-    hashed_password = hash_password(password)
-    now = datetime.now(timezone.utc).timestamp()
-    user_id = len(_USERS) + 1
-    user = {
-        "id": user_id,
-        "username": username,
-        "email": email,
-        "hashed_password": hashed_password,
-        "tier": tier,
-        "role": "user",
-        "is_verified": False,
-        "created_at": now,
-    }
-    _USERS[username] = user
-    _save_users()
-    return user
+    """Create a new user in the database."""
+    async with async_session() as db:
+        if await get_user_by_username(db, username):
+            return None
+        if await get_user_by_email(db, email):
+            return None
+        hashed_password = hash_password(password)
+        user = User(
+            username=username,
+            email=email,
+            hashed_password=hashed_password,
+            tier=tier,
+            role="user",
+            is_verified=False,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return _user_to_dict(user)
 
 
-async def get_tier(username: str) -> str:
-    """Get user tier."""
-    user = _USERS.get(username)
+async def get_tier(db: AsyncSession, username: str) -> str:
+    """Get user tier from the database."""
+    user = await get_user_by_username(db, username)
     if user:
         return user.get("tier", "free")
     return "free"
 
 
-async def get_tier_limits(username: str) -> dict:
+async def get_tier_limits(db: AsyncSession, username: str) -> dict:
     """Get tier limits for a user."""
     from app.models import TIER_LIMITS
-    tier = await get_tier(username)
+    tier = await get_tier(db, username)
     return TIER_LIMITS.get(tier, TIER_LIMITS["free"])
 
+
+async def update_user_profile(
+    db: AsyncSession,
+    username: str,
+    **kwargs,
+) -> Optional[dict]:
+    """Update user profile fields. Self-service updates only allow email."""
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        return None
+    new_email = kwargs.get("email")
+    if new_email is not None and new_email != user.email:
+        existing = await get_user_by_email(db, new_email)
+        if existing and existing["username"] != username:
+            return None
+    # Only email is editable by the user themselves; tier/role are admin-only.
+    if new_email is not None:
+        user.email = new_email
+    await db.commit()
+    await db.refresh(user)
+    return _user_to_dict(user)
+
+
+async def change_password(
+    db: AsyncSession,
+    username: str,
+    old_password: str,
+    new_password: str,
+) -> bool:
+    """Change user password after verifying the current one."""
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        return False
+    if not verify_password(old_password, user.hashed_password):
+        return False
+    user.hashed_password = hash_password(new_password)
+    await db.commit()
+    return True
+
+
+async def reset_password_with_token(
+    db: AsyncSession,
+    token: str,
+    new_password: str,
+) -> bool:
+    """Reset password using a password-reset JWT (subject is the email)."""
+    email = verify_password_reset_token(token)
+    if email is None:
+        return False
+    user = await get_user_by_email(db, email)
+    if user is None:
+        return False
+    user_result = await db.execute(select(User).where(User.username == user["username"]))
+    db_user = user_result.scalar_one_or_none()
+    if db_user is None:
+        return False
+    db_user.hashed_password = hash_password(new_password)
+    await db.commit()
+    return True
+
+
+async def delete_account(
+    db: AsyncSession,
+    username: str,
+) -> None:
+    """Delete a user account and cascade their uploads/outputs/jobs."""
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        return
+    await db.delete(user)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Email / password-reset tokens (pure JWT, no DB)
+# ---------------------------------------------------------------------------
 
 def verify_email_token(token: str) -> Optional[str]:
     """Verify email verification token."""
@@ -187,69 +265,27 @@ def generate_password_reset(email: str) -> str:
     return create_password_reset_token(email, expires_delta=timedelta(hours=1))
 
 
-def reset_password_with_token(token: str, new_password: str) -> bool:
-    """Reset password using reset token."""
-    email = verify_password_reset_token(token)
-    if email is None:
-        return False
-    user = get_user_by_email(email)
-    if user is None:
-        return False
-    user["hashed_password"] = hash_password(new_password)
-    _save_users()
-    return True
+# ---------------------------------------------------------------------------
+# Current-user dependencies (require DB session)
+# ---------------------------------------------------------------------------
 
-
-def change_password(username: str, old_password: str, new_password: str) -> bool:
-    """Change user password."""
-    user = _USERS.get(username)
-    if user is None:
-        return False
-    if not verify_password(old_password, user["hashed_password"]):
-        return False
-    user["hashed_password"] = hash_password(new_password)
-    _save_users()
-    return True
-
-
-def update_user_profile(username: str, **kwargs) -> Optional[dict]:
-    """Update user profile fields."""
-    user = _USERS.get(username)
-    if user is None:
-        return None
-    new_email = kwargs.get("email")
-    if new_email is not None and new_email != user.get("email"):
-        for other in _USERS.values():
-            if other.get("username") != username and other.get("email") == new_email:
-                return None
-    for key, value in kwargs.items():
-        if key in ("email", "tier") and value is not None:
-            user[key] = value
-    _save_users()
-    return user
-
-
-async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[dict]:
+async def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[dict]:
     """Return the current user if authenticated, otherwise None."""
     if token is None:
         return None
     username = verify_token(token)
     if username is None:
         return None
-    user = get_user_by_username(username)
-    if user is None:
-        return None
-    return {
-        "id": user["id"],
-        "username": user["username"],
-        "email": user["email"],
-        "tier": user["tier"],
-        "role": user["role"],
-        "is_verified": user["is_verified"],
-    }
+    return await get_user_by_username(db, username)
 
 
-async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dict:
+async def get_current_user(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
     """Require authentication. Raises 401 if not authenticated."""
     if token is None:
         raise HTTPException(
@@ -264,26 +300,19 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dic
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_user_by_username(username)
+    user = await get_user_by_username(db, username)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return {
-        "id": user["id"],
-        "username": user["username"],
-        "email": user["email"],
-        "tier": user["tier"],
-        "role": user["role"],
-        "is_verified": user["is_verified"],
-    }
+    return user
 
 
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    """Require admin/enterprise tier."""
-    if current_user.get("tier") != "enterprise":
+    """Require admin role (not merely enterprise tier)."""
+    if current_user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",

@@ -250,5 +250,19 @@ export async function runAsyncJob(requestFn: () => Promise<any>) {
   if (!jobId) return res; // synchronous response
   const job = await pollJob(jobId);
   if (job.status !== "success") throw new Error(job.error || "Job failed");
-  return { id: job.result, ext: "pdf", name: res.name ?? "result" };
+  const outId = job.result;
+  // Resolve the real extension and display name from history so result cards
+  // show the correct format (e.g. .txt after a txt conversion) rather than
+  // always defaulting to PDF / "result".
+  try {
+    const history = await listHistory(25);
+    const entries: any[] = history?.history || [];
+    const entry = entries.find((e: any) => e.id === outId);
+    if (entry) {
+      return { id: outId, ext: entry.ext, name: entry.original_name || outId };
+    }
+  } catch {
+    // fall through to defaults below
+  }
+  return { id: outId, ext: "pdf", name: res.name ?? "result" };
 }

@@ -1,6 +1,7 @@
 """Background processing tasks: conversions and PDF toolkit operations."""
 
 import os
+import shutil
 from typing import Any, Optional, Optional
 
 from app.registry import registry
@@ -111,7 +112,10 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
         original_name = "images_to_pdf.pdf"
 
     if tool in {"extract_images"}:
-        st.save_output(out_id, b"images-extracted", "dir", user_id=user_id, original_name=original_name or out_id)
+        zip_path = str(Path(OUTPUT_DIR) / out_id)
+        shutil.make_archive(zip_path, "zip", out_dir)
+        data = open(f"{zip_path}.zip", "rb").read()
+        st.save_output(out_id, data, "zip", user_id=user_id, original_name=original_name or f"{out_id}.zip")
     else:
         data = open(out_path, "rb").read()
         st.save_output(out_id, data, "txt" if tool == "extract_text" else "pdf", user_id=user_id, original_name=original_name or out_id)

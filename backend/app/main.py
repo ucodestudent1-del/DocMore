@@ -2,7 +2,20 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare, payments, admin
+from app.api.routes import (
+    upload,
+    convert,
+    pdf,
+    generate,
+    history,
+    download,
+    formats,
+    jobs,
+    auth,
+    compare,
+    payments,
+    admin,
+)
 from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
 from app.database import init_db
 import os
@@ -52,9 +65,9 @@ app.include_router(generate.router, prefix="/api")
 app.include_router(history.router, prefix="/api")
 app.include_router(download.router, prefix="/api")
 app.include_router(formats.router, prefix="/api")
+app.include_router(jobs.router, prefix="/api")
 app.include_router(auth.router, prefix="/api/auth")
 app.include_router(compare.router, prefix="/api")
-app.include_router(auth.router, prefix="/api/auth")
 app.include_router(payments.router, prefix="/api/payments")
 app.include_router(admin.router)
 
