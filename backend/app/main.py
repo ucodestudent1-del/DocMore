@@ -4,10 +4,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare, payments
 from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
+from app.database import init_db
 import os
 from pathlib import Path
 
 app = FastAPI(title="Universal Document Studio", version="1.0.0")
+
+
+@app.on_event("startup")
+async def on_startup():
+    await init_db()
 
 # Security middleware (order matters - outer middleware wraps inner)
 app.add_middleware(SecurityHeadersMiddleware)
