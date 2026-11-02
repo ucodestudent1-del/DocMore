@@ -22,7 +22,7 @@ async def convert_file(
     req: ConvertRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    check_rate_limit_dependency(current_user["username"])
+    await check_rate_limit_dependency(current_user["username"])
     source = storage.read_file(req.file_id)
     if not source:
         raise HTTPException(status_code=404, detail="File not found")

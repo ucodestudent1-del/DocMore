@@ -13,7 +13,7 @@ async def upload_file(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
 ):
-    check_rate_limit_dependency(current_user["username"])
+    await check_rate_limit_dependency(current_user["username"])
     content = await file.read()
     try:
         entry = storage.save_upload(

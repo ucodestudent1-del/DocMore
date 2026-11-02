@@ -157,7 +157,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             user_id = request.client.host if request.client else "unknown"
 
         from app.rate_limiter import check_rate_limit
-        allowed, message = check_rate_limit(user_id)
+        allowed, message = await check_rate_limit(user_id)
         if not allowed:
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
