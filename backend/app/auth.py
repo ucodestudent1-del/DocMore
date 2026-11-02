@@ -12,7 +12,6 @@ from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
-
 # ---------------------------------------------------------------------------
 # In-memory user store
 # ---------------------------------------------------------------------------
@@ -47,7 +46,7 @@ def _save_users() -> None:
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt. bcrypt limits passwords to 72 bytes."""
+    """Hash a password using bcrypt."""
     pwd = password.encode("utf-8")[:72]
     return bcrypt.hashpw(pwd, bcrypt.gensalt()).decode("utf-8")
 
