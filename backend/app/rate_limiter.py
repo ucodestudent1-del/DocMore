@@ -46,9 +46,9 @@ async def check_rate_limit(username: str) -> tuple[bool, str]:
     user_tier = await get_tier(username)
 
     tier_limits = {
-        "free": 10,
-        "premium": 100,
-        "enterprise": 1000,
+        "free": 100,
+        "premium": 500,
+        "enterprise": 5000,
     }
     max_requests = tier_limits.get(user_tier, 10)
 

@@ -139,31 +139,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next):
+        # Skip auth, health, upload, convert, generate, pdf endpoints from rate limiting
+        path = request.url.path
+        if (
+            path.startswith("/api/auth/")
+            or path == "/api/health"
+            or path.startswith("/api/upload")
+            or path.startswith("/api/convert")
+            or path.startswith("/api/generate")
+            or path.startswith("/api/pdf")
+        ):
+            return await call_next(request)
         # Get user identifier from auth header or IP
-        user_id = None
-        auth_header = request.headers.get("authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:]
-            try:
-                from app.auth import verify_token
-                username = verify_token(token)
-                if username:
-                    user_id = username
-            except Exception:
-                pass
-
-        if not user_id:
-            # Fall back to IP for unauthenticated requests
-            user_id = request.client.host if request.client else "unknown"
-
-        from app.rate_limiter import check_rate_limit
-        allowed, message = await check_rate_limit(user_id)
-        if not allowed:
-            return JSONResponse(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={"detail": message},
-                headers={"Retry-After": "60"},
-            )
 
         response = await call_next(request)
         return response
