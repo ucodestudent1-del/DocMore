@@ -76,7 +76,7 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, index=True)
-    user_id: Mapped[Optional[str]] = mapped_column(String(255), index=True, nullable=True)
+    user_id: Mapped[Optional[str]] = mapped_column(String(255), ForeignKey("users.username"), index=True, nullable=True)
     task_name: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, running, completed, failed
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
