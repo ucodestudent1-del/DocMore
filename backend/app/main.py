@@ -16,6 +16,7 @@ from app.api.routes import (
     payments,
     admin,
 )
+from app.config import FRONTEND_URL
 from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
 from app.database import init_db
 import os
@@ -52,7 +53,7 @@ app.add_middleware(RateLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to specific domains
+    allow_origins=[FRONTEND_URL] if FRONTEND_URL else ["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

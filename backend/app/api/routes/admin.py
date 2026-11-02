@@ -3,12 +3,12 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_admin, get_user_by_username
-from app.database import async_session, get_db
-from app.models import User, Upload, Output, Job, Subscription, TIER_LIMITS
+from app.database import get_db
+from app.models import User, Upload, Output, Job, TIER_LIMITS
 
 
 router = APIRouter(tags=["admin"], prefix="/api/admin")

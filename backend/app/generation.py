@@ -5,7 +5,7 @@ Supports export to PDF, DOCX, ODT, HTML, Markdown, TXT.
 
 import os
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 from docx import Document
@@ -345,7 +345,7 @@ def _build_odt_styles() -> str:
 
 
 def _build_odt_meta() -> str:
-    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     return f'''<?xml version="1.0" encoding="UTF-8"?>
 <office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
                       xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"
@@ -371,6 +371,12 @@ def _build_odt_settings() -> str:
 # ---------------------------------------------------------------------------
 # HTML / MD / TXT
 # ---------------------------------------------------------------------------
+
+
+def _escape(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _render_html(blocks: List[Block], output_path: str) -> ConversionResult:
     parts = ["<!DOCTYPE html><html><head><meta charset='utf-8'><title>Document</title></head><body>"]
     for block in blocks:
@@ -481,6 +487,3 @@ def fill_placeholders(blocks: List[Block], data: dict) -> List[Block]:
             filled.append(block)
     return filled
 
-
-def _escape(s: str) -> str:
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

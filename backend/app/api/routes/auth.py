@@ -16,11 +16,9 @@ from app.auth import (
     verify_email_token,
     generate_email_verification,
     create_password_reset_token,
-    verify_password_reset_token,
     reset_password_with_token,
     change_password,
     update_user_profile,
-    require_admin,
     delete_account,
 )
 from app.database import get_db
@@ -160,7 +158,7 @@ async def resend_verification(req: ResendVerificationRequest, db: AsyncSession =
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User not found or already verified",
         )
-    token = generate_email_verification(user["username"], user["email"])
+    generate_email_verification(user["username"], user["email"])
     # In a real app, send the token by email here.
     return {"detail": "Verification email sent"}
 
@@ -172,7 +170,7 @@ async def request_password_reset(req: RequestPasswordReset, db: AsyncSession = D
     if user is None:
         # Do not leak whether the account exists.
         return {"detail": "If an account exists, a reset link has been sent"}
-    token = create_password_reset_token(user["email"])
+    create_password_reset_token(user["email"])
     # In a real app, send the token by email here.
     return {"detail": "If an account exists, a reset link has been sent"}
 

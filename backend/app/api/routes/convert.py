@@ -26,6 +26,10 @@ async def convert_file(
     source = storage.read_file(req.file_id)
     if not source:
         raise HTTPException(status_code=404, detail="File not found")
+    # Verify the user owns this file before allowing conversion.
+    entry = storage.get_file_entry(req.file_id, current_user["username"])
+    if not entry:
+        raise HTTPException(status_code=403, detail="Not authorized to access this file")
     source_ext = source.suffix.lower().lstrip(".")
     target = req.target.lower().lstrip(".")
     if not registry.can_convert(source_ext, target):

@@ -5,10 +5,13 @@ Uses Redis when available (production), falls back to in-memory store (developme
 
 import time
 import threading
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from app.config import REDIS_URL
-from app.auth import get_tier
+from app.database import async_session
+from app.models import User
+from sqlalchemy import select
+
 
 # In-memory rate limit store: {user_id: [timestamps]}
 _rate_limit_store: Dict[str, List[float]] = {}
@@ -38,12 +41,20 @@ def _redis_key(username: str) -> str:
     return f"rate_limit:{username}"
 
 
+async def _get_tier_from_db(username: str) -> str:
+    """Look up user tier from the database."""
+    async with async_session() as db:
+        result = await db.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        return user.tier if user else "free"
+
+
 async def check_rate_limit(username: str) -> tuple[bool, str]:
     """Check if user has exceeded rate limits. Returns (allowed, message)."""
     if not username:
         return True, ""  # No auth = no rate limit
 
-    user_tier = await get_tier(username)
+    user_tier = await _get_tier_from_db(username)
 
     tier_limits = {
         "free": 100,

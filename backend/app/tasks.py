@@ -2,28 +2,29 @@
 
 import os
 import shutil
-from typing import Any, Optional, Optional
+from typing import Optional
 
 from app.registry import registry
 from app.pdf_tools import (
     merge_pdfs, split_pdf, rotate_pages, rearrange_pages, extract_pages,
     delete_pages, add_watermark, add_page_numbers, add_header_footer,
-    extract_text, extract_images, set_metadata, compress_pdf, protect_pdf,
+    extract_text, extract_images, compress_pdf, protect_pdf,
     unlock_pdf, repair_pdf, images_to_pdf, ocr_pdf,
 )
 from app.generation import render_blocks
-from app.storage import storage
-from app.jobs import _mark
 
 
 def _run_conversion(job_id: str, file_id: str, target: str, options: dict, user_id: Optional[str] = None) -> str:
     from app.storage import storage as st
-    source = st.read_file(file_id)
-    if not source:
+    from pathlib import Path
+    source_entry = st.get_file_entry(file_id, user_id=user_id)
+    if not source_entry:
         raise FileNotFoundError(f"Source file {file_id} not found")
+    source = Path(source_entry["path"])
+    if not source.exists():
+        raise FileNotFoundError(f"Source file {file_id} not found on disk")
     source_ext = source.suffix.lower().lstrip(".")
     out_id = os.urandom(12).hex()
-    from pathlib import Path
     from app.config import OUTPUT_DIR
     target_path = str(Path(OUTPUT_DIR) / f"{out_id}.{target}")
     result = registry.convert(source_ext, target, str(source), target_path, options)
@@ -42,21 +43,28 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
     from app.config import OUTPUT_DIR
     from app.storage import storage as st
     out_id = os.urandom(12).hex()
+    user_id = kwargs.get("user_id")
 
     file_id = kwargs.get("file_id")
     src = None
     if file_id:
-        src = st.read_file(file_id)
-        if not src:
+        src_entry = st.get_file_entry(file_id, user_id=user_id)
+        if not src_entry:
             raise FileNotFoundError(f"Source file {file_id} not found")
+        src = Path(src_entry["path"])
+        if not src.exists():
+            raise FileNotFoundError(f"Source file {file_id} not found on disk")
     out_path = str(Path(OUTPUT_DIR) / f"{out_id}.pdf")
 
     if tool == "merge":
         paths = []
         for fid in kwargs["file_ids"]:
-            p = st.read_file(fid)
-            if not p:
+            fid_entry = st.get_file_entry(fid, user_id=user_id)
+            if not fid_entry:
                 raise FileNotFoundError(f"Merge source file {fid} not found")
+            p = Path(fid_entry["path"])
+            if not p.exists():
+                raise FileNotFoundError(f"Merge source file {fid} not found on disk")
             paths.append(str(p))
         res = merge_pdfs(paths, out_path)
     elif tool == "split":
