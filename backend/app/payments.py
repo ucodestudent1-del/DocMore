@@ -7,7 +7,7 @@ from fastapi import HTTPException
 
 from app.config import STRIPE_SECRET_KEY
 
-stripe.api_key = SECRET_KEY
+stripe.api_key = STRIPE_SECRET_KEY
 
 
 # Subscription tier pricing (in cents)
