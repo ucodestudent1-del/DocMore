@@ -98,7 +98,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
 async def create_user(username: str, email: str, password: str, tier: str = "free") -> Optional[dict]:
     """Create a new user."""
     if username in _USERS:
-        return _USERS[username]  # Return existing user if already exists
+        return None
     hashed_password = hash_password(password)
     now = datetime.now(timezone.utc).timestamp()
     user_id = len(_USERS) + 1
@@ -117,20 +117,7 @@ async def create_user(username: str, email: str, password: str, tier: str = "fre
     return user
 
 
-async def get_user_by_username(username: str, db=None) -> Optional[dict]:
-    """Get user by username from in-memory store."""
-    return _USERS.get(username)
-
-
-async def get_user_by_email(email: str, db=None) -> Optional[dict]:
-    """Get user by email from in-memory store."""
-    for u in _USERS.values():
-        if u.get("email") == email:
-            return u
-    return None
-
-
-def get_tier(username: str) -> str:
+async def get_tier(username: str) -> str:
     """Get user tier."""
     user = _USERS.get(username)
     if user:
@@ -138,10 +125,10 @@ def get_tier(username: str) -> str:
     return "free"
 
 
-def get_tier_limits(username: str) -> dict:
+async def get_tier_limits(username: str) -> dict:
     """Get tier limits for a user."""
     from app.models import TIER_LIMITS
-    tier = get_tier(username)
+    tier = await get_tier(username)
     return TIER_LIMITS.get(tier, TIER_LIMITS["free"])
 
 
