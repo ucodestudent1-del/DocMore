@@ -25,18 +25,18 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-function authHeaders(): HeadersInit {
+export function authHeaders(): HeadersInit {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function apiRequest(input: RequestInfo | URL, init?: RequestInit) {
-  const mergedHeaders: HeadersInit = {
+  const headers: HeadersInit = {
     "Content-Type": "application/json",
-    ...(init?.headers || {}),
     ...authHeaders(),
+    ...(init?.headers || {}),
   };
-  const res = await fetch(input, { ...init, headers: mergedHeaders });
+  const res = await fetch(input, { ...init, headers });
   if (res.status === 401) {
     clearToken();
     if (typeof window !== "undefined") {

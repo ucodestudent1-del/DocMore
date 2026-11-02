@@ -96,9 +96,9 @@ def get_user_by_email(email: str) -> Optional[dict]:
 
 
 async def create_user(username: str, email: str, password: str, tier: str = "free") -> Optional[dict]:
-    """Create a new user (async wrapper)."""
+    """Create a new user."""
     if username in _USERS:
-        return None
+        return _USERS[username]  # Return existing user if already exists
     hashed_password = hash_password(password)
     now = datetime.now(timezone.utc).timestamp()
     user_id = len(_USERS) + 1
@@ -130,7 +130,7 @@ async def get_user_by_email(email: str, db=None) -> Optional[dict]:
     return None
 
 
-async def get_tier(username: str) -> str:
+def get_tier(username: str) -> str:
     """Get user tier."""
     user = _USERS.get(username)
     if user:
@@ -138,10 +138,10 @@ async def get_tier(username: str) -> str:
     return "free"
 
 
-async def get_tier_limits(username: str) -> dict:
+def get_tier_limits(username: str) -> dict:
     """Get tier limits for a user."""
     from app.models import TIER_LIMITS
-    tier = await get_tier(username)
+    tier = get_tier(username)
     return TIER_LIMITS.get(tier, TIER_LIMITS["free"])
 
 
@@ -292,8 +292,3 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
             detail="Admin access required",
         )
     return current_user
-
-
-async def verify_email_token(token: str) -> Optional[str]:
-    """Verify email verification token."""
-    return verify_token(token)

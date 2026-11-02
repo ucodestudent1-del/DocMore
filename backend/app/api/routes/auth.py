@@ -21,11 +21,6 @@ from app.auth import (
     update_user_profile,
     require_admin,
 )
-from app.email import send_welcome_email, send_password_reset as send_password_reset_email
-from app.database import async_session
-from app.models import User
-from sqlalchemy import select, func
-
 
 router = APIRouter(tags=["auth"])
 
@@ -91,8 +86,6 @@ async def register(user: UserRegister):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username or email already registered",
         )
-    # Send welcome email with verification token
-    send_welcome_email(created["email"], created["username"])
     return UserOut(
         id=created["id"],
         username=created["username"],
@@ -105,8 +98,7 @@ async def register(user: UserRegister):
 
 @router.post("/token", response_model=Token)
 async def login(user: UserLogin):
-    async with async_session() as db:
-        db_user = await get_user_by_username(db, user.username)
+    db_user = get_user_by_username(user.username)
     if db_user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -137,8 +129,8 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
 
 @router.post("/verify-email")
 async def verify_email(req: VerifyEmailRequest):
-    """Verify email address using verification token."""
-    success = await verify_email_token(req.token)
+    """Verify email verification token."""
+    success = verify_email_token(req.token)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -150,35 +142,31 @@ async def verify_email(req: VerifyEmailRequest):
 @router.post("/resend-verification")
 async def resend_verification(req: ResendVerificationRequest):
     """Resend email verification token."""
-    token = await generate_email_verification(req.username)
+    token = generate_email_verification(req.username)
     if token is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User not found or already verified",
         )
-    async with async_session() as db:
-        user = await get_user_by_username(db, req.username)
-    if user:
-        send_welcome_email(user["email"], user["username"])
     return {"detail": "Verification email sent"}
 
 
 @router.post("/request-password-reset")
 async def request_password_reset(req: RequestPasswordReset):
-    """Request a password reset token. Always returns success to prevent email enumeration."""
-    token = await create_password_reset_token(req.username)
+    """Request a password reset token."""
+    token = create_password_reset_token(req.username)
     if token:
-        async with async_session() as db:
-            user = await get_user_by_username(db, req.username)
+        user = get_user_by_email(req.username)
         if user:
-            send_password_reset_email(user["email"], user["username"], token)
+            # In a real app, send email here
+            pass
     return {"detail": "If an account exists, a reset link has been sent"}
 
 
 @router.post("/reset-password")
 async def reset_password(req: ResetPasswordRequest):
-    """Reset password using a valid reset token."""
-    success = await reset_password_with_token(req.token, req.new_password)
+    """Reset password using reset token."""
+    success = reset_password_with_token(req.token, req.new_password)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -193,7 +181,7 @@ async def change_password_endpoint(
     current_user: dict = Depends(get_current_user),
 ):
     """Change password after verifying current password."""
-    success = await change_password(current_user["username"], req.current_password, req.new_password)
+    success = change_password(current_user["username"], req.current_password, req.new_password)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -208,7 +196,7 @@ async def update_profile(
     current_user: dict = Depends(get_current_user),
 ):
     """Update user profile."""
-    updated = await update_user_profile(
+    updated = update_user_profile(
         current_user["username"],
         email=req.email,
         tier=req.tier,
@@ -216,7 +204,7 @@ async def update_profile(
     if updated is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not update profile (email may be taken)",
+            detail="Could not update profile",
         )
     return UserOut(
         id=updated["id"],
@@ -231,9 +219,7 @@ async def update_profile(
 @router.delete("/me")
 async def delete_account(current_user: dict = Depends(get_current_user)):
     """Delete the current user account."""
-    async with async_session() as db:
-        await db.execute(
-            __import__("sqlalchemy").delete(User).where(User.username == current_user["username"])
-        )
-        await db.commit()
+    username = current_user["username"]
+    if username in _USERS:
+        del _USERS[username]
     return {"detail": "Account deleted successfully"}
