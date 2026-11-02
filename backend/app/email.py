@@ -2,8 +2,13 @@
 
 import os
 from typing import Optional, List
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, From, To, Subject, PlainTextContent, HtmlContent
+
+try:
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail, From, To, Subject, PlainTextContent, HtmlContent
+    _HAS_SENDGRID = True
+except ImportError:
+    _HAS_SENDGRID = False
 
 from app.config import SENDGRID_API_KEY, SENDGRID_FROM_EMAIL
 
@@ -15,7 +20,7 @@ def send_email(
     plain_text_content: Optional[str] = None,
 ) -> bool:
     """Send an email via SendGrid."""
-    if not SENDGRID_API_KEY or SENDGRID_API_KEY == "your-sendgrid-api-key":
+    if not SENDGRID_API_KEY or SENDGRID_API_KEY == "your-sendgrid-api-key" or not _HAS_SENDGRID:
         # In development, just log the email
         print(f"[EMAIL] To: {to_email}")
         print(f"[EMAIL] Subject: {subject}")

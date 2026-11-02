@@ -1,14 +1,41 @@
-"""Rate limiting for subscription tiers."""
+"""Rate limiting for subscription tiers.
+
+Uses Redis when available (production), falls back to in-memory store (development).
+"""
 
 import time
 import threading
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
+from app.config import REDIS_URL
 from app.auth import get_tier
 
 # In-memory rate limit store: {user_id: [timestamps]}
 _rate_limit_store: Dict[str, List[float]] = {}
 _lock = threading.Lock()
+
+# Redis client (lazy init)
+_redis_client = None
+
+
+def _get_redis():
+    """Get or create a Redis client."""
+    global _redis_client
+    if _redis_client is not False:  # False means "tried and failed"
+        if _redis_client is None:
+            try:
+                import redis
+                _redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+                # Test connection
+                _redis_client.ping()
+            except Exception:
+                _redis_client = False  # Mark as unavailable
+        return _redis_client if _redis_client is not False else None
+    return None
+
+
+def _redis_key(username: str) -> str:
+    return f"rate_limit:{username}"
 
 
 async def check_rate_limit(username: str) -> tuple[bool, str]:
@@ -18,7 +45,6 @@ async def check_rate_limit(username: str) -> tuple[bool, str]:
 
     user_tier = await get_tier(username)
 
-    # Simple rate limit: 10 requests per minute for free, 100 for premium, 1000 for enterprise
     tier_limits = {
         "free": 10,
         "premium": 100,
@@ -29,6 +55,26 @@ async def check_rate_limit(username: str) -> tuple[bool, str]:
     now = time.time()
     window = 60  # 1 minute window
 
+    # Try Redis first
+    redis_client = _get_redis()
+    if redis_client is not None:
+        try:
+            key = _redis_key(username)
+            # Remove old timestamps
+            redis_client.zremrangebyscore(key, 0, now - window)
+            count = redis_client.zcard(key)
+
+            if count >= max_requests:
+                return False, f"Rate limit exceeded. {user_tier} tier allows {max_requests} requests per minute."
+
+            redis_client.zadd(key, {str(now): now})
+            redis_client.expire(key, window + 1)
+            return True, ""
+        except Exception:
+            # Fall through to in-memory
+            pass
+
+    # In-memory fallback
     with _lock:
         if username not in _rate_limit_store:
             _rate_limit_store[username] = []

@@ -23,6 +23,7 @@ email-validator==2.2.0
 sqlalchemy==2.0.29
 asyncpg==0.29.0
 psycopg2-binary==2.9.9
+redis==5.0.1
 # Payments
 stripe>=4.0.0
 # Email

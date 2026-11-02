@@ -1,13 +1,20 @@
 """Payment processing with Stripe."""
 
-import stripe
-from decimal import Decimal
+import os
 from typing import Dict, Any, Optional
 from fastapi import HTTPException
 
-from app.config import STRIPE_SECRET_KEY
+try:
+    import stripe
+    _HAS_STRIPE = True
+except ImportError:
+    stripe = None
+    _HAS_STRIPE = False
 
-stripe.api_key = STRIPE_SECRET_KEY
+from app.config import STRIPE_SECRET_KEY, FRONTEND_URL
+
+if _HAS_STRIPE and STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
 
 
 # Subscription tier pricing (in cents)
@@ -26,6 +33,9 @@ TIER_NAMES = {
 
 def create_checkout_session(user_id: str, tier: str, interval: str = "monthly") -> dict:
     """Create a Stripe Checkout session for subscription."""
+    if not _HAS_STRIPE or not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Payment processing not configured")
+
     if tier not in TIER_PRICING:
         raise ValueError(f"Invalid tier: {tier}")
 
@@ -47,8 +57,7 @@ def create_checkout_session(user_id: str, tier: str, interval: str = "monthly") 
                     "recurring": {"interval": interval},
                 },
                 "quantity": 1,
-            },
-            ],
+            }],
             mode="subscription",
             customer_email=None,  # Will be set by customer
             metadata={
@@ -56,8 +65,8 @@ def create_checkout_session(user_id: str, tier: str, interval: str = "monthly") 
                 "tier": tier,
                 "interval": interval,
             },
-            success_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/settings?payment=success&session_id={CHECKOUT_SESSION_ID_PLACEHOLDER}",
-            cancel_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/settings?payment=cancelled",
+            success_url=f"{FRONTEND_URL}/settings?payment=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{FRONTEND_URL}/settings?payment=cancelled",
         )
         return {"checkout_url": checkout_session.url, "session_id": checkout_session.id}
     except Exception as e:
@@ -66,7 +75,6 @@ def create_checkout_session(user_id: str, tier: str, interval: str = "monthly") 
 
 def handle_webhook(payload: bytes, sig_header: str) -> dict:
     """Handle Stripe webhook events."""
-    import os
     webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_placeholder")
 
     try:
@@ -84,23 +92,9 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
         metadata = data.get("metadata", {})
         user_id = metadata.get("user_id")
         tier = metadata.get("tier")
-        interval = metadata.get("interval", "monthly")
 
         if user_id and tier:
-            from app.database import async_session
-            from app.models import User
-            from sqlalchemy import update
-
-            async def _update_tier():
-                async with async_session() as db:
-                    from sqlalchemy import update as sql_update
-                    stmt = sql_update(User).where(User.username == user_id).values(tier=tier)
-                    await db.execute(stmt)
-                    await db.commit()
-
-            import asyncio
-            asyncio.create_task(_update_tier())
-
+            _update_user_tier(user_id, tier)
             return {"status": "success", "action": "subscription_updated", "user_id": user_id, "tier": tier}
 
     elif event_type == "customer.subscription.updated":
@@ -110,16 +104,7 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
         tier = metadata.get("tier")
 
         if user_id and tier:
-            async def _update_tier():
-                async with async_session() as db:
-                    from sqlalchemy import update as sql_update
-                    stmt = sql_update(User).where(User.username == user_id).values(tier=tier)
-                    await db.execute(stmt)
-                    await db.commit()
-
-            import asyncio
-            asyncio.create_task(_update_tier())
-
+            _update_user_tier(user_id, tier)
             return {"status": "success", "action": "subscription_updated", "user_id": user_id, "tier": tier}
 
     elif event_type == "customer.subscription.deleted":
@@ -128,16 +113,31 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
         user_id = metadata.get("user_id")
 
         if user_id:
-            async def _downgrade():
-                async with async_session() as db:
-                    from sqlalchemy import update as sql_update
-                    stmt = sql_update(User).where(User.username == user_id).values(tier="free")
-                    await db.execute(stmt)
-                    await db.commit()
-
-            import asyncio
-            asyncio.create_task(_downgrade())
-
+            _update_user_tier(user_id, "free")
             return {"status": "success", "action": "subscription_cancelled", "user_id": user_id}
 
     return {"status": "ignored", "event_type": event_type}
+
+
+def _update_user_tier(user_id: str, tier: str) -> None:
+    """Update user tier in database (synchronous, called from webhook handler)."""
+    import asyncio
+    from app.database import async_session
+    from app.models import User
+    from sqlalchemy import update as sql_update
+
+    async def _do_update():
+        async with async_session() as db:
+            stmt = sql_update(User).where(User.username == user_id).values(tier=tier)
+            await db.execute(stmt)
+            await db.commit()
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We're in an async context; schedule but don't await
+            asyncio.ensure_future(_do_update())
+        else:
+            loop.run_until_complete(_do_update())
+    except RuntimeError:
+        asyncio.run(_do_update())

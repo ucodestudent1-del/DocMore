@@ -1,8 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare, payments
+from fastapi.responses import FileResponse, JSONResponse
+from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare, payments, admin
 from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
 from app.database import init_db
 import os
@@ -14,6 +14,23 @@ app = FastAPI(title="Universal Document Studio", version="1.0.0")
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+
+
+# Consistent error response format
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": True, "message": exc.detail, "status_code": exc.status_code},
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"error": True, "message": "Internal server error", "status_code": 500},
+    )
 
 # Security middleware (order matters - outer middleware wraps inner)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -39,6 +56,7 @@ app.include_router(auth.router, prefix="/api/auth")
 app.include_router(compare.router, prefix="/api")
 app.include_router(auth.router, prefix="/api/auth")
 app.include_router(payments.router, prefix="/api/payments")
+app.include_router(admin.router)
 
 
 @app.get("/api/health")
