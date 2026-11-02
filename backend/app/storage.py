@@ -85,15 +85,24 @@ class Storage:
                     return p
         return None
 
-    def save_output(self, file_id: str, content: bytes, ext: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+    def save_output(
+        self,
+        file_id: str,
+        content: bytes,
+        ext: str,
+        user_id: Optional[str] = None,
+        original_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Save converted output file to disk and record in history."""
         dest = OUTPUT_DIR / f"{file_id}{('.' + ext) if ext else ''}"
         dest.write_bytes(content)
 
+        display_name = original_name or file_id
+
         entry = {
             "id": file_id,
             "user_id": user_id,
-            "original_name": file_id,
+            "original_name": display_name,
             "stored_name": dest.name,
             "path": str(dest),
             "mime": "application/octet-stream",
@@ -124,11 +133,14 @@ class Storage:
 
     # --- History -----------------------------------------------------
     def list_history(self, limit: int = 100, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """List processing history, optionally filtered by user."""
+        """List processing history, optionally filtered by user.
+        Auth user records (kind="user") are excluded — they are not document history.
+        """
         with _lock:
             items = _history
             if user_id:
                 items = [e for e in items if e.get("user_id") == user_id]
+            items = [e for e in items if e.get("kind") != "user"]
             return list(items[:limit])
 
     def get_file_entry(self, file_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:

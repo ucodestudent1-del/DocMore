@@ -29,7 +29,10 @@ def _run_conversion(job_id: str, file_id: str, target: str, options: dict, user_
     if not result.ok:
         raise RuntimeError(result.error or "Conversion failed")
     data = open(target_path, "rb").read()
-    st.save_output(out_id, data, target, user_id=user_id)
+    # Look up the source file's original name for meaningful history display
+    source_entry = st.get_file_entry(file_id, user_id=user_id)
+    original_name = source_entry.get("original_name", source.stem) if source_entry else source.stem
+    st.save_output(out_id, data, target, user_id=user_id, original_name=original_name)
     return out_id
 
 
@@ -96,11 +99,22 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
     if not res.ok:
         raise RuntimeError(res.error or "PDF tool failed")
 
+    # Determine a meaningful original name for history display
+    user_id = kwargs.get("user_id")
+    original_name = None
+    if file_id:
+        source_entry = st.get_file_entry(file_id, user_id=user_id)
+        original_name = source_entry.get("original_name", src.stem) if source_entry else src.stem
+    elif tool == "merge":
+        original_name = "merged.pdf"
+    elif tool == "images_to_pdf":
+        original_name = "images_to_pdf.pdf"
+
     if tool in {"extract_images"}:
-        st.save_output(out_id, b"images-extracted", "dir", user_id=kwargs.get("user_id"))
+        st.save_output(out_id, b"images-extracted", "dir", user_id=user_id, original_name=original_name or out_id)
     else:
         data = open(out_path, "rb").read()
-        st.save_output(out_id, data, "txt" if tool == "extract_text" else "pdf", user_id=kwargs.get("user_id"))
+        st.save_output(out_id, data, "txt" if tool == "extract_text" else "pdf", user_id=user_id, original_name=original_name or out_id)
     return out_id
 
 
@@ -109,9 +123,9 @@ try:
     from app.celery_app import celery_app
 
     @celery_app.task(bind=True, name="tasks.convert")
-    def convert_task(self, file_id: str, target: str, options: dict) -> str:
+    def convert_task(self, file_id: str, target: str, options: dict, user_id: Optional[str] = None) -> str:
         self.update_state(state="STARTED", meta={"progress": 10})
-        return _run_conversion(self.request.id, file_id, target, options)
+        return _run_conversion(self.request.id, file_id, target, options, user_id=user_id)
 
     @celery_app.task(bind=True, name="tasks.pdf_tool")
     def pdf_tool_task(self, tool: str, **kwargs) -> str:
@@ -143,9 +157,8 @@ try:
         if not res.ok:
             raise RuntimeError(res.error)
         data = open(out_path, "rb").read()
-        st.save_output(out_id, data, fmt, user_id=user_id)
+        st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}")
         return out_id
-
 except Exception:  # celery not importable / broker down
     convert_task = None
     pdf_tool_task = None
@@ -185,5 +198,5 @@ def generate(blocks: list, fmt: str, data: dict, page_size: str = "letter",
     if not res.ok:
         raise RuntimeError(res.error)
     data = open(out_path, "rb").read()
-    st.save_output(out_id, data, fmt, user_id=user_id)
+    st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}")
     return out_id
