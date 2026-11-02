@@ -47,6 +47,7 @@ def create_checkout_session(user_id: str, tier: str, interval: str = "monthly") 
                     "recurring": {"interval": interval},
                 },
                 "quantity": 1,
+            },
             ],
             mode="subscription",
             customer_email=None,  # Will be set by customer
