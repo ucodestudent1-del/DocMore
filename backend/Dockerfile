@@ -1,14 +1,14 @@
 FROM python:3.12-slim
 
-WORKDIR /app/backend
+WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     REDIS_URL=redis://redis:6379/0 \
     PORT=8000 \
-    FRONTEND_DIR=/app/frontend/out
+    PYTHONPATH=/app
 
-# System dependencies for full document processing:
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice poppler-utils tesseract-ocr libmagic1 fonts-dejavu-core \
     curl ca-certificates \
@@ -19,19 +19,19 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Python dependencies
+# Install Python dependencies
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install frontend dependencies and build static export
-COPY frontend/package.json frontend/package-lock.json* ./../frontend/
-RUN cd /app/frontend && npm install --legacy-peer-deps
-COPY frontend ./../frontend
-RUN cd /app/frontend && npm run build
+# Copy backend code
+COPY backend ./backend
 
-# Copy backend source code
-COPY backend/app ./app
+# Copy frontend and build static export
+COPY frontend/package.json ./frontend/package.json
+RUN cd /app/frontend && npm install --legacy-peer-deps
+COPY frontend ./frontend
+RUN cd /app/frontend && npm run build
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "cd /app/backend && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

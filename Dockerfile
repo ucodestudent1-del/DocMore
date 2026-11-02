@@ -26,9 +26,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code
 COPY backend ./backend
 
-# Copy frontend and build
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN cd /app && npm install --legacy-peer-deps
+# Install frontend dependencies and build static export
+COPY frontend/package.json ./frontend/package.json
+RUN cd /app/frontend && npm install --legacy-peer-deps
 COPY frontend ./frontend
 RUN cd /app/frontend && npm run build
 

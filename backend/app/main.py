@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare, admin
+from app.api.routes import upload, convert, pdf, generate, history, download, formats, jobs, auth, compare, payments, admin
 from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
 from app.database import init_db
 import os

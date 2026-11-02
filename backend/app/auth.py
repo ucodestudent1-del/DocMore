@@ -217,8 +217,13 @@ def update_user_profile(username: str, **kwargs) -> Optional[dict]:
     user = _USERS.get(username)
     if user is None:
         return None
+    new_email = kwargs.get("email")
+    if new_email is not None and new_email != user.get("email"):
+        for other in _USERS.values():
+            if other.get("username") != username and other.get("email") == new_email:
+                return None
     for key, value in kwargs.items():
-        if key in ("email", "tier"):
+        if key in ("email", "tier") and value is not None:
             user[key] = value
     _save_users()
     return user
@@ -235,9 +240,12 @@ async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme
     if user is None:
         return None
     return {
+        "id": user["id"],
         "username": user["username"],
         "email": user["email"],
         "tier": user["tier"],
+        "role": user["role"],
+        "is_verified": user["is_verified"],
     }
 
 
@@ -264,9 +272,12 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> dic
             headers={"WWW-Authenticate": "Bearer"},
         )
     return {
+        "id": user["id"],
         "username": user["username"],
         "email": user["email"],
         "tier": user["tier"],
+        "role": user["role"],
+        "is_verified": user["is_verified"],
     }
 
 

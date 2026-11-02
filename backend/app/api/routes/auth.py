@@ -20,6 +20,7 @@ from app.auth import (
     change_password,
     update_user_profile,
     require_admin,
+    _USERS,
 )
 
 router = APIRouter(tags=["auth"])
