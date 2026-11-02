@@ -23,7 +23,7 @@ email-validator==2.2.0
 sqlalchemy==2.0.29
 asyncpg==0.29.0
 # Payments
-stripe==4.8.0
+stripe>=4.0.0
 # Email
 sendgrid==6.11.0
 # Cloud storage (S3 compatible)
