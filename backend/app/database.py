@@ -6,6 +6,10 @@ from sqlalchemy.orm import declarative_base
 
 from app.config import DATABASE_URL
 
+# Ensure the asyncpg dialect is used for create_async_engine
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 # Create async engine
 engine = create_async_engine(
     DATABASE_URL,
