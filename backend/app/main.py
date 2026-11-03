@@ -84,9 +84,17 @@ FRONTEND_DIR = Path(os.environ.get("FRONTEND_DIR", str(Path(__file__).resolve().
 if FRONTEND_DIR.exists():
 
     class SPAStaticFiles(StaticFiles):
-        """StaticFiles that falls back to index.html for SPA routing (Next.js export)."""
+        """StaticFiles that falls back to index.html for SPA routing (Next.js export).
+
+        Static assets under /_next/static/ are never rewritten to index.html —
+        they must return proper 404s if missing so browsers don't interpret
+        HTML as CSS/JavaScript (strict MIME type checking).
+        """
 
         async def get_response(self, path: str, scope: Scope):
+            # Never apply SPA fallback to Next.js static assets.
+            if path.startswith("_next/static/"):
+                return await super().get_response(path, scope)
             response = await super().get_response(path, scope)
             if response.status_code == 404:
                 index = FRONTEND_DIR / "index.html"
