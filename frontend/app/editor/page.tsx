@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  useState, useEffect, useCallback, useRef,
+  useState, useEffect, useCallback, useRef, Suspense,
 } from "react";
 import {
   listDocuments,
@@ -46,6 +46,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export default function EditorPage() {
+  return (
+    <Suspense fallback={<EditorLoading />}>
+      <EditorPageContent />
+    </Suspense>
+  );
+}
+
+function EditorLoading() {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-muted-foreground">Loading editor…</p>
+      </div>
+    </div>
+  );
+}
+
+function EditorPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const docIdParam = searchParams.get("doc");
