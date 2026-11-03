@@ -71,8 +71,26 @@ export async function convertFile(fileId: string, target: string, options: Recor
   });
 }
 
-export function downloadFile(fileId: string) {
-  return `${API_BASE}/download/${encodeURIComponent(fileId)}`;
+export async function downloadFile(fileId: string) {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}/download/${encodeURIComponent(fileId)}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Download failed ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const disposition = res.headers.get("content-disposition") || "";
+  const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+  a.download = match ? match[1].replace(/['"]/g, "") : fileId;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export async function listHistory(limit = 50) {

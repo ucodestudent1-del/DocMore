@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.storage import storage
 from app.registry import registry
 from app.jobs import enqueue, get_job
-from app.api.routes.auth import get_current_user
+from app.api.routes.auth import get_current_user_optional
 from app.rate_limiter import check_rate_limit_dependency
 
 router = APIRouter(tags=["convert"])
@@ -20,14 +20,16 @@ class ConvertRequest(BaseModel):
 @router.post("/convert")
 async def convert_file(
     req: ConvertRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict | None = Depends(get_current_user_optional),
 ):
-    await check_rate_limit_dependency(current_user["username"])
+    user_id = current_user["username"] if current_user else None
+    if user_id:
+        await check_rate_limit_dependency(user_id)
     source = storage.read_file(req.file_id)
     if not source:
         raise HTTPException(status_code=404, detail="File not found")
     # Verify the user owns this file before allowing conversion.
-    entry = storage.get_file_entry(req.file_id, current_user["username"])
+    entry = storage.get_file_entry(req.file_id, user_id=user_id)
     if not entry:
         raise HTTPException(status_code=403, detail="Not authorized to access this file")
     source_ext = source.suffix.lower().lstrip(".")
@@ -42,7 +44,7 @@ async def convert_file(
         req.file_id,
         target,
         req.options,
-        user_id=current_user["username"],
+        user_id=user_id,
     )
     return {"job_id": job_id, "status": "queued"}
 

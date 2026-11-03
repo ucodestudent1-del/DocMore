@@ -127,7 +127,7 @@ function GeneratePageContent() {
     const handleKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "s") {
         e.preventDefault();
-        if (result) window.location.href = downloadFile(result.id);
+        if (result) downloadFile(result.id);
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -197,7 +197,7 @@ function GeneratePageContent() {
   };
 
   const download = () => {
-    if (result) window.location.href = downloadFile(result.id);
+    if (result) downloadFile(result.id);
   };
 
   return (
@@ -319,9 +319,8 @@ function GeneratePageContent() {
                     <p className="text-sm font-medium">{result.name}</p>
                     <p className="text-xs text-muted-foreground">{result.ext.toUpperCase()}</p>
                   </div>
-                  <a href={downloadFile(result.id)} download>
-                    <Button>Download</Button>
-                  </a>
+                  <Button onClick={() => downloadFile(result.id)}>
+                    Download</Button>
                 </div>
               </CardContent>
             </Card>

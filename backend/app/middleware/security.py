@@ -1,6 +1,6 @@
 """Security middleware: CSRF protection, security headers, rate limiting."""
 
-from fastapi import Request, HTTPException, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
@@ -35,11 +35,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Content Security Policy
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
             "font-src 'self'; "
-            "connect-src 'self' https:; "
+            "connect-src 'self'; "
             "frame-ancestors 'none';"
         )
         response.headers["Content-Security-Policy"] = csp
@@ -110,9 +110,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             # For other state-changing endpoints, require CSRF token
             token = self._get_csrf_token(request)
             if not self._validate_token(token, CSRF_SECRET):
-                # CSRF enforcement is deferred until frontend token flow is wired;
-                # allow the request through so auth dependencies handle authorization.
-                pass
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"error": True, "message": "CSRF token missing or invalid", "status_code": 403},
+                )
 
         response = await call_next(request)
 
@@ -132,24 +133,36 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Rate limiting middleware - delegates to app.rate_limiter."""
+    """Rate limiting middleware using app.rate_limiter."""
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next):
-        # Skip auth, health, upload, convert, generate, pdf endpoints from rate limiting
         path = request.url.path
-        if (
-            path.startswith("/api/auth/")
-            or path == "/api/health"
-            or path.startswith("/api/upload")
-            or path.startswith("/api/convert")
-            or path.startswith("/api/generate")
-            or path.startswith("/api/pdf")
-        ):
+
+        # Skip auth, health endpoints from rate limiting
+        if path.startswith("/api/auth/") or path == "/api/health":
             return await call_next(request)
+
         # Get user identifier from auth header or IP
+        auth_header = request.headers.get("authorization", "")
+        username = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            from app.auth import verify_token
+            username = verify_token(token)
+
+        identifier = username or request.client.host if request.client else "anonymous"
+
+        from app.rate_limiter import check_rate_limit
+        allowed, message = await check_rate_limit(identifier)
+        if not allowed:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"error": True, "message": message, "status_code": 429},
+                headers={"Retry-After": "60"},
+            )
 
         response = await call_next(request)
         return response

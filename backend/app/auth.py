@@ -201,6 +201,14 @@ async def delete_account(
     user = user_result.scalar_one_or_none()
     if user is None:
         return
+    # Delete user's files from filesystem
+    from app.storage import storage as st
+    for entry in list(st._history):
+        if entry.get("user_id") == username:
+            st.delete_file(entry["id"])
+    # Remove from history
+    st._history = [e for e in st._history if e.get("user_id") != username]
+    st._save_history()
     await db.delete(user)
     await db.commit()
 

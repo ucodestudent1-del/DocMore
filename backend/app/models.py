@@ -3,7 +3,7 @@
 Uses SQLAlchemy with async support for PostgreSQL.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from sqlalchemy import (
     Column, Integer, String, DateTime, Float, Text, ForeignKey, Index
@@ -53,8 +53,8 @@ class User(Base):
     email_verification_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     password_reset_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     password_reset_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     uploads: Mapped[List["Upload"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -75,7 +75,7 @@ class Upload(Base):
     ext: Mapped[str] = mapped_column(String(20), nullable=False)
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     kind: Mapped[str] = mapped_column(String(50), default="upload", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="uploads")
@@ -94,7 +94,7 @@ class Output(Base):
     ext: Mapped[str] = mapped_column(String(20), nullable=False)
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     kind: Mapped[str] = mapped_column(String(50), default="output", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="outputs")
@@ -111,8 +111,8 @@ class Job(Base):
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped[Optional["User"]] = relationship("User", back_populates="jobs")
@@ -133,8 +133,8 @@ class Subscription(Base):
     current_period_start: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     current_period_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     cancel_at_period_end: Mapped[bool] = mapped_column(default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User")

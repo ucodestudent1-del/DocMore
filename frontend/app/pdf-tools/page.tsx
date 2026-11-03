@@ -134,7 +134,7 @@ export default function PdfToolsPage() {
   }, [router]);
 
   const download = (id: string) => {
-    window.location.href = downloadFile(id);
+    downloadFile(id);
   };
 
   return (
@@ -422,9 +422,8 @@ export default function PdfToolsPage() {
                 <p className="text-sm font-medium">{result.name}</p>
                 <p className="text-xs text-muted-foreground">{result.ext.toUpperCase()}</p>
               </div>
-              <a href={downloadFile(result.id)} download>
-                <Button>Download <Download className="ml-2 h-4 w-4" /></Button>
-              </a>
+              <Button onClick={() => downloadFile(result.id)}>
+                Download <Download className="ml-2 h-4 w-4" /></Button>
             </div>
           </CardContent>
         </Card>

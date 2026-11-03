@@ -80,6 +80,8 @@ class Storage:
     def read_file(self, file_id: str) -> Optional[Path]:
         """Find a file on disk by its ID."""
         for directory in (UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR):
+            if not directory.exists():
+                continue
             for p in directory.iterdir():
                 if p.is_file() and p.stem == file_id:
                     return p

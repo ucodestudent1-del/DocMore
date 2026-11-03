@@ -315,10 +315,8 @@ export default function ConvertPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <a href={downloadFile(result.id)} download>
-                    <Button>
-                      Download <Download className="ml-2 h-4 w-4" /></Button>
-                  </a>
+                  <Button onClick={() => downloadFile(result.id)}>
+                    Download <Download className="ml-2 h-4 w-4" /></Button>
                 </div>
               </CardContent>
             </Card>

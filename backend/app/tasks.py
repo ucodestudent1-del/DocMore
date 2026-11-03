@@ -30,7 +30,8 @@ def _run_conversion(job_id: str, file_id: str, target: str, options: dict, user_
     result = registry.convert(source_ext, target, str(source), target_path, options)
     if not result.ok:
         raise RuntimeError(result.error or "Conversion failed")
-    data = open(target_path, "rb").read()
+    with open(target_path, "rb") as f:
+        data = f.read()
     # Look up the source file's original name for meaningful history display
     source_entry = st.get_file_entry(file_id, user_id=user_id)
     original_name = source_entry.get("original_name", source.stem) if source_entry else source.stem
@@ -122,10 +123,12 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
     if tool in {"extract_images"}:
         zip_path = str(Path(OUTPUT_DIR) / out_id)
         shutil.make_archive(zip_path, "zip", out_dir)
-        data = open(f"{zip_path}.zip", "rb").read()
+        with open(f"{zip_path}.zip", "rb") as f:
+            data = f.read()
         st.save_output(out_id, data, "zip", user_id=user_id, original_name=original_name or f"{out_id}.zip")
     else:
-        data = open(out_path, "rb").read()
+        with open(out_path, "rb") as f:
+            data = f.read()
         st.save_output(out_id, data, "txt" if tool == "extract_text" else "pdf", user_id=user_id, original_name=original_name or out_id)
     return out_id
 

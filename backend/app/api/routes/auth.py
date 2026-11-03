@@ -10,6 +10,7 @@ from app.auth import (
     create_access_token,
     verify_password,
     get_current_user,
+    get_current_user_optional,  # noqa: F401 — re-exported for route modules
     create_user,
     get_user_by_username,
     get_user_by_email,

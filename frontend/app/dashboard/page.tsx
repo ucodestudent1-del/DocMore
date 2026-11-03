@@ -106,10 +106,10 @@ export default function Dashboard() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.location.href = downloadFile(item.id);
-                        }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadFile(item.id);
+                          }}
                         title="Download"
                       >
                         <Download className="h-4 w-4" />
