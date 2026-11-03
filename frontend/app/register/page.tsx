@@ -15,11 +15,74 @@ export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const validateField = (name: string, value: string) => {
+    if (name === "username") {
+      if (!value.trim()) {
+        setUsernameError("Username is required");
+      } else if (value.trim().length < 3) {
+        setUsernameError("Username must be at least 3 characters");
+      } else {
+        setUsernameError(null);
+      }
+    }
+    if (name === "email") {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!value) {
+        setEmailError("Email is required");
+      } else if (!emailRegex.test(value)) {
+        setEmailError("Invalid email address");
+      } else {
+        setEmailError(null);
+      }
+    }
+    if (name === "password") {
+      if (!value) {
+        setPasswordError("Password is required");
+      } else if (value.length < 6) {
+        setPasswordError("Password must be at least 6 characters");
+      } else {
+        setPasswordError(null);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    let valid = true;
+
+    if (!username.trim()) {
+      setUsernameError("Username is required");
+      valid = false;
+    } else if (username.trim().length < 3) {
+      setUsernameError("Username must be at least 3 characters");
+      valid = false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      setEmailError("Email is required");
+      valid = false;
+    } else if (!emailRegex.test(email)) {
+      setEmailError("Invalid email address");
+      valid = false;
+    }
+
+    if (!password) {
+      setPasswordError("Password is required");
+      valid = false;
+    } else if (password.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      valid = false;
+    }
+
+    if (!valid) return;
+
     setLoading(true);
     try {
       await registerUser(username, email, password);
@@ -49,9 +112,20 @@ export default function RegisterPage() {
                 type="text"
                 placeholder="Choose a username"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  validateField("username", e.target.value);
+                }}
+                onBlur={(e) => validateField("username", e.target.value)}
                 required
+                aria-invalid={!!usernameError}
+                aria-describedby={usernameError ? "username-error" : undefined}
               />
+              {usernameError && (
+                <p id="username-error" className="text-sm text-destructive">
+                  {usernameError}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
@@ -59,9 +133,20 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="Enter your email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  validateField("email", e.target.value);
+                }}
+                onBlur={(e) => validateField("email", e.target.value)}
                 required
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "email-error" : undefined}
               />
+              {emailError && (
+                <p id="email-error" className="text-sm text-destructive">
+                  {emailError}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
@@ -69,9 +154,20 @@ export default function RegisterPage() {
                 type="password"
                 placeholder="Create a password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  validateField("password", e.target.value);
+                }}
+                onBlur={(e) => validateField("password", e.target.value)}
                 required
+                aria-invalid={!!passwordError}
+                aria-describedby={passwordError ? "password-error" : undefined}
               />
+              {passwordError && (
+                <p id="password-error" className="text-sm text-destructive">
+                  {passwordError}
+                </p>
+              )}
             </div>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? "Creating account..." : "Create account"}

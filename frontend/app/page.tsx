@@ -56,7 +56,7 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6">
+      <section className="relative pt-24 pb-24 lg:pt-32 lg:pb-32 px-6">
         <div className="max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-semibold mb-8">
             <span className="relative flex h-2 w-2">
@@ -73,7 +73,7 @@ export default function HomePage() {
             and power your document workflows — no installation required.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" className="px-8 py-3 flex items-center gap-2" onClick={() => window.location.href = "/register"}>
+            <Button size="lg" className="px-8 py-3 flex items-center gap-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-1 transition-all" onClick={() => window.location.href = "/register"}>
               <Rocket className="h-5 w-5" />
               Get started — free
             </Button>
@@ -85,7 +85,7 @@ export default function HomePage() {
       </section>
 
       {/* Trust / Stats Bar */}
-      <section className="border-y border-border/50 bg-muted/50 px-6 py-10">
+      <section className="border-y border-border/50 bg-muted/50 px-6 py-16">
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
@@ -109,9 +109,9 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6">
+      <section className="py-16 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight text-foreground mb-4">Everything you need, in one place</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               From simple conversions to complex document generation, DocStudio handles it all.
@@ -159,9 +159,9 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="py-20 px-6 bg-muted/50">
+      <section className="py-16 px-6 bg-muted/50">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight text-foreground mb-4">Three steps to done</h2>
             <p className="text-lg text-muted-foreground">Upload, convert, download — that's it.</p>
           </div>
@@ -174,9 +174,9 @@ export default function HomePage() {
       </section>
 
       {/* Supported Formats */}
-      <section className="py-20 px-6">
+      <section className="py-16 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight text-foreground mb-4">Convert between anything</h2>
             <p className="text-lg text-muted-foreground">30+ formats, all directions supported.</p>
           </div>
@@ -201,9 +201,9 @@ export default function HomePage() {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 px-6">
+      <section className="py-16 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight text-foreground mb-4">Simple, transparent pricing</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Start free. Upgrade when you need more.</p>
           </div>
@@ -260,7 +260,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6">
+      <section className="py-16 px-6">
         <div className="max-w-3xl mx-auto">
           <div className="relative rounded-2xl bg-primary p-8 md:p-12 text-primary-foreground overflow-hidden">
             <div className="absolute top-0 right-0 -mr-10 -mt-10 opacity-10">

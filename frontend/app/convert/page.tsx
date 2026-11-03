@@ -15,6 +15,7 @@ import {
   getToken,
 } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -87,6 +88,7 @@ export default function ConvertPage() {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [recommendedTarget, setRecommendedTarget] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const fileInput = useRef<any>(null);
 
   useEffect(() => {
@@ -184,14 +186,22 @@ export default function ConvertPage() {
   const onSubmit = async (values: ConvertForm) => {
     if (!sourceFile) return;
     setConverting(true);
+    setProgress(0);
     setError(null);
+    // Simulate progress while conversion runs
+    const progressInterval = setInterval(() => {
+      setProgress((p) => (p < 90 ? p + 10 : p));
+    }, 300);
     try {
       const r = await runAsyncJob(() => convertFile(sourceFile.id, values.target, {}));
       setResult({ id: r.id, ext: r.ext });
+      setProgress(100);
     } catch (e: any) {
       setError(e.message || "Conversion failed");
+      setProgress(0);
     } finally {
       setConverting(false);
+      clearInterval(progressInterval);
     }
   };
 
@@ -302,6 +312,15 @@ export default function ConvertPage() {
                   >
                     {converting ? "Converting..." : "Convert"}
                   </Button>
+                  {converting && (
+                    <div className="mt-4 space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Conversion progress</span>
+                        <span>{progress}%</span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
+                    </div>
+                  )}
                 </form>
               </CardContent>
             </Card>

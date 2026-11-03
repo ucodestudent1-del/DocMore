@@ -26,6 +26,10 @@
     --radius: 0.75rem;
     --sidebar-border: 214.3 31.8% 91.4%;
     --sidebar-border-color: 214.3 31.8% 91.4%;
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 210 40% 98%;
+    --warning: 48 96% 53%;
+    --warning-foreground: 210 40% 98%;
   }
 
   .dark {
@@ -50,6 +54,10 @@
     --ring: 217.2 91.2% 59.8%;
     --sidebar-border: 217.2 32.6% 17.5%;
     --sidebar-border-color: 217.2 32.6% 17.5%;
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 222.2 47.4% 11.2%;
+    --warning: 48 96% 53%;
+    --warning-foreground: 210 40% 98%;
   }
 }
 

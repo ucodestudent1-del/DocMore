@@ -14,6 +14,8 @@ import { LogIn, ArrowRight } from "lucide-react";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -23,8 +25,38 @@ export default function LoginPage() {
     }
   }, [router]);
 
+  const validateField = (name: string, value: string) => {
+    if (name === "username") {
+      if (!value.trim()) {
+        setUsernameError("Username is required");
+      } else {
+        setUsernameError(null);
+      }
+    }
+    if (name === "password") {
+      if (!value) {
+        setPasswordError("Password is required");
+      } else {
+        setPasswordError(null);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    let valid = true;
+
+    if (!username.trim()) {
+      setUsernameError("Username is required");
+      valid = false;
+    }
+    if (!password) {
+      setPasswordError("Password is required");
+      valid = false;
+    }
+
+    if (!valid) return;
+
     setLoading(true);
     try {
       await loginUser(username, password);
@@ -40,7 +72,7 @@ export default function LoginPage() {
 
   const handleForgotPassword = async () => {
     if (!username) {
-      toast({ title: "Enter your username first", description: "We need your username to send a reset link." });
+      setUsernameError("Username is required");
       return;
     }
     try {
@@ -69,9 +101,20 @@ export default function LoginPage() {
                 type="text"
                 placeholder="Enter your username"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  validateField("username", e.target.value);
+                }}
+                onBlur={(e) => validateField("username", e.target.value)}
                 required
+                aria-invalid={!!usernameError}
+                aria-describedby={usernameError ? "username-error" : undefined}
               />
+              {usernameError && (
+                <p id="username-error" className="text-sm text-destructive">
+                  {usernameError}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -85,9 +128,20 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  validateField("password", e.target.value);
+                }}
+                onBlur={(e) => validateField("password", e.target.value)}
                 required
+                aria-invalid={!!passwordError}
+                aria-describedby={passwordError ? "password-error" : undefined}
               />
+              {passwordError && (
+                <p id="password-error" className="text-sm text-destructive">
+                  {passwordError}
+                </p>
+              )}
             </div>
             <Button type="submit" disabled={loading} className="w-full" size="lg">
               {loading ? <ArrowRight className="h-4 w-4 animate-spin" /> : null}

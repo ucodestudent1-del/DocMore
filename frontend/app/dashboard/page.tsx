@@ -84,9 +84,15 @@ export default function Dashboard() {
               {loading ? (
                 <div className="h-32 flex items-center justify-center text-muted-foreground">Loading…</div>
               ) : history.length === 0 ? (
-                <div className="h-32 flex flex-col items-center justify-center text-muted-foreground">
-                  <Clock className="h-8 w-8 mb-2 opacity-50" />
-                  <p>No recent conversions</p>
+                <div className="h-48 flex flex-col items-center justify-center text-muted-foreground border border-dashed rounded-xl p-8">
+                  <Clock className="h-12 w-12 mb-3 opacity-50" />
+                  <h3 className="font-medium text-foreground mb-1">No recent conversions</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Get started by converting your first document.
+                  </p>
+                  <Button asChild className="w-full max-w-xs">
+                    <Link href="/convert">Upload a file</Link>
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -106,11 +112,11 @@ export default function Dashboard() {
                       <Button
                         variant="ghost"
                         size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            downloadFile(item.id);
-                          }}
-                        title="Download"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadFile(item.id);
+                        }}
+                        aria-label={`Download ${item.original_name || item.stored_name || item.id}`}
                       >
                         <Download className="h-4 w-4" />
                       </Button>
