@@ -72,9 +72,9 @@ def _user_to_dict(user: User) -> dict:
         "username": user.username,
         "email": user.email,
         "hashed_password": user.hashed_password,
-        "tier": user.tier,
-        "role": user.role,
-        "is_verified": user.is_verified,
+        "tier": getattr(user, "tier", "free"),
+        "role": getattr(user, "role", "user"),
+        "is_verified": getattr(user, "is_verified", False),
         "created_at": user.created_at.timestamp() if user.created_at else None,
     }
 

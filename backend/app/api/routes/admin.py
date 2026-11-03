@@ -45,9 +45,9 @@ def _user_out(user: User) -> AdminUserOut:
         id=user.id,
         username=user.username,
         email=user.email,
-        tier=user.tier,
-        role=user.role,
-        is_verified=user.is_verified,
+        tier=getattr(user, "tier", "free"),
+        role=getattr(user, "role", "user"),
+        is_verified=getattr(user, "is_verified", False),
         created_at=user.created_at.isoformat() if user.created_at else "",
     )
 
