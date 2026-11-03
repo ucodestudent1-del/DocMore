@@ -219,6 +219,13 @@ export async function loginUser(username: string, password: string) {
   return res;
 }
 
+export async function forgotPassword(username: string) {
+  return apiRequest(`${API_BASE}/auth/request-password-reset`, {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+}
+
 export async function fetchMe() {
   return apiRequest(`${API_BASE}/auth/me`);
 }
