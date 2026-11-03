@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { LogIn, ArrowRight } from "lucide-react";
 
@@ -161,15 +162,3 @@ export default function LoginPage() {
   );
 }
 
-function Separator() {
-  return (
-    <div className="relative w-full my-4">
-      <div className="absolute inset-0 flex items-center">
-        <span className="w-full border-t border-border/50"></span>
-      </div>
-      <div className="absolute left-1/2 -translate-x-1/2 flex items-center text-xs font-semibold text-muted-foreground bg-background px-4">
-        Or continue with
-      </div>
-    </div>
-  );
-}
