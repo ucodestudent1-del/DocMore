@@ -4,8 +4,13 @@ import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import {
   generateDocument,
   generateTemplate,
+  generateBatch,
+  generateBatchCsv,
+  generateBatchJson,
   runAsyncJob,
   listTemplates,
+  templatePlaceholders,
+  listFormats,
   downloadFile,
   getToken,
 } from "@/lib/api";
@@ -51,6 +56,7 @@ const FORMATS = [
   { value: "html", label: "HTML" },
   { value: "md", label: "Markdown" },
   { value: "txt", label: "Plain Text" },
+  { value: "epub", label: "EPUB" },
 ];
 
 export default function GeneratePage() {
@@ -71,6 +77,14 @@ function GeneratePageContent() {
   const [orientation, setOrientation] = useState("portrait");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ id: string; ext: string; name: string } | null>(null);
+  const [batchGenerating, setBatchGenerating] = useState(false);
+  const [batchResult, setBatchResult] = useState<{ template: string; format: string; total: number; results: any[] } | null>(null);
+  const [batchData, setBatchData] = useState("");
+  const [batchMode, setBatchMode] = useState("csv"); // "csv" | "json"
+  const [batchTemplate, setBatchTemplate] = useState<string | null>(null);
+  const [placeholders, setPlaceholders] = useState<string[]>([]);
+  const [batchFormat, setBatchFormat] = useState("pdf");
+  const [formats, setFormats] = useState<{ format: string; status: string }[]>([]);
   const [templates, setTemplates] = useState<string[]>([]);
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const [templateName, setTemplateName] = useState<string | null>(null);
@@ -89,6 +103,9 @@ function GeneratePageContent() {
   useEffect(() => {
     if (!getToken()) return;
     listTemplates().then((r: any) => setTemplates(r.templates || [])).catch(() => {});
+    listFormats().then((r: any) => {
+      if (Array.isArray(r)) setFormats(r);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -101,6 +118,12 @@ function GeneratePageContent() {
       }
     }
   }, [templateName, templateLoaded]);
+
+  useEffect(() => {
+    if (batchTemplate) {
+      templatePlaceholders(batchTemplate).then((r: any) => setPlaceholders(r.placeholders || [])).catch(() => {});
+    }
+  }, [batchTemplate]);
 
   useEffect(() => {
     localStorage.setItem("ud-draft", JSON.stringify(blocks));
@@ -193,6 +216,25 @@ function GeneratePageContent() {
       toast({ title: "Generation failed", description: e.message });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const generateBatch = async () => {
+    setBatchGenerating(true);
+    try {
+      let job: any;
+      if (batchMode === "csv") {
+        job = await runAsyncJob(() => generateBatchCsv(batchTemplate || "", batchData, batchFormat, "letter", "portrait"));
+      } else {
+        job = await runAsyncJob(() => generateBatchJson(batchTemplate || "", batchData, batchFormat, "letter", "portrait"));
+      }
+      const rows = batchData.trim().split(/\r?\n/).filter(Boolean).length;
+      setBatchResult({ template: batchTemplate || "", format: batchFormat, total: rows, results: job.results || [] });
+      toast({ title: "Batch generation complete", description: `Generated ${job.results?.length || 0} documents` });
+    } catch (e: any) {
+      toast({ title: "Batch generation failed", description: e.message });
+    } finally {
+      setBatchGenerating(false);
     }
   };
 
@@ -321,6 +363,85 @@ function GeneratePageContent() {
                   </div>
                   <Button onClick={() => downloadFile(result.id)}>
                     Download</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Batch generation</CardTitle>
+              <p className="text-xs text-muted-foreground">Generate multiple documents from one template using CSV or JSON data.</p>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-4">
+              <div className="space-y-2">
+                <Label>Template</Label>
+                <Select value={batchTemplate || ""} onValueChange={setBatchTemplate}>
+                  <SelectTrigger><SelectValue>{batchTemplate || "Select a template"}</SelectValue></SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Data source</Label>
+                <div className="flex gap-2">
+                  <Button onClick={() => setBatchMode("csv")} variant={batchMode === "csv" ? "default" : "outline"} size="sm">
+                    CSV
+                  </Button>
+                  <Button onClick={() => setBatchMode("json")} variant={batchMode === "json" ? "default" : "outline"} size="sm">
+                    JSON
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                value={batchData}
+                onChange={(e) => setBatchData(e.target.value)}
+                placeholder={batchMode === "csv" ? "name,email,role\nAlice,alice@example.com,Engineer\nBob,bob@example.com,Designer" : '[{"name":"Alice","email":"alice@example.com"},{"name":"Bob","email":"bob@example.com"}]'}
+                className="h-40 font-mono text-sm"
+              />
+              {placeholders.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-medium">Placeholders:</span> {placeholders.join(", ")}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Format</Label>
+                <Select value={batchFormat} onValueChange={setBatchFormat}>
+                  <SelectTrigger><SelectValue>{batchFormat}</SelectValue></SelectTrigger>
+                  <SelectContent>
+                    {formats.map((f) => (
+                      <SelectItem key={f.format} value={f.format}>{f.format.toUpperCase()}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={generateBatch} disabled={batchGenerating || !batchTemplate || !batchData.trim()} className="w-full">
+                {batchGenerating ? "Generating batch…" : "Generate Batch"}
+              </Button>
+            </CardContent>
+          </Card>
+          {batchResult && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Batch results</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{batchResult.results.length} of {batchResult.total} documents generated ({batchResult.format.toUpperCase()})</p>
+                <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
+                  {batchResult.results.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between px-2 py-1 text-sm border-b border-border/50 last:border-0">
+                      <span className="truncate">{r.name || `doc-${i + 1}.${batchResult.format}`}</span>
+                      {r.output_id ? (
+                        <Button onClick={() => downloadFile(r.output_id)} variant="ghost" size="icon">
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-destructive">{r.error || "failed"}</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

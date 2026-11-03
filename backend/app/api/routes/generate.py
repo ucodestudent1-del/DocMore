@@ -1,19 +1,26 @@
-"""API routes: document generation (async via job queue)."""
+"""API routes: document generation (async via job queue).
 
-import secrets
-from pathlib import Path
-from typing import List, Optional, Dict, Any
+Endpoints:
+  POST /api/generate                 - single document from blocks
+  POST /api/generate/template        - single document from a named template
+  POST /api/generate/batch           - batch: one document per data row
+  GET  /api/generate/templates       - list template names
+  GET  /api/generate/templates/{name}/placeholders  - extract {{placeholders}}
+  GET  /api/generate/formats         - list supported export formats + fidelity
+"""
+
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
-from app.storage import storage
-from app.generation import (
-    render_blocks, HeadingBlock, ParagraphBlock, TableBlock,
-    ListBlock, ImageBlock, PageBreakBlock, HorizontalRuleBlock,
-    fill_placeholders,
+from app.services.generation_service import (
+    service as gen_service,
+    GenerationError,
+    NATIVE_FORMATS,
+    FIDELITY_NOTES,
 )
-from app.jobs import enqueue, get_job
+from app.jobs import get_job
 from app.api.routes.auth import get_current_user
 
 router = APIRouter(tags=["generate"])
@@ -39,142 +46,177 @@ class TemplateRequest(BaseModel):
     format: str = "pdf"
 
 
-BLOCK_MAP = {
-    "heading": HeadingBlock,
-    "paragraph": ParagraphBlock,
-    "table": TableBlock,
-    "list": ListBlock,
-    "image": ImageBlock,
-    "pagebreak": PageBreakBlock,
-    "hr": HorizontalRuleBlock,
-}
+class BatchRequest(BaseModel):
+    template: str
+    rows: List[dict]
+    format: str = "pdf"
+    page_size: str = "letter"
+    orientation: str = "portrait"
+    margins: Optional[dict] = None
 
 
-def _block_to_dict(b) -> dict:
-    type_by_class = {
-        "HeadingBlock": "heading",
-        "ParagraphBlock": "paragraph",
-        "TableBlock": "table",
-        "ListBlock": "list",
-        "ImageBlock": "image",
-        "PageBreakBlock": "pagebreak",
-        "HorizontalRuleBlock": "hr",
-    }
-    t = type_by_class.get(b.__class__.__name__, "paragraph")
-    if t == "heading":
-        data = {"text": getattr(b, "text", ""), "level": getattr(b, "level", 1)}
-    elif t == "paragraph":
-        data = {"text": getattr(b, "text", ""), "align": getattr(b, "align", "left")}
-    elif t == "list":
-        data = {"items": getattr(b, "items", []), "ordered": getattr(b, "ordered", False)}
-    elif t == "table":
-        data = {"rows": getattr(b, "rows", [])}
-    elif t == "image":
-        data = {"path": getattr(b, "path", ""), "width": getattr(b, "width", 4)}
-    else:
-        data = {}
-    return {"type": t, "data": data}
+class BatchCsvRequest(BaseModel):
+    template: str
+    csv: str
+    format: str = "pdf"
+    page_size: str = "letter"
+    orientation: str = "portrait"
+    margins: Optional[dict] = None
 
 
-def _blocks_to_dicts(blocks) -> list:
-    return [_block_to_dict(b) for b in blocks]
+class BatchJsonRequest(BaseModel):
+    template: str
+    json: str
+    format: str = "pdf"
+    page_size: str = "letter"
+    orientation: str = "portrait"
+    margins: Optional[dict] = None
 
 
-def _to_blocks(blocks_in: List[BlockIn]) -> List:
-    blocks = []
-    for b in blocks_in:
-        cls = BLOCK_MAP.get(b.type)
-        if not cls:
-            raise HTTPException(status_code=400, detail=f"Unknown block type {b.type}")
-        blocks.append(cls(**b.data))
-    return blocks
-
-
-TEMPLATES: Dict[str, List[BlockIn]] = {
-    "invoice": [
-        BlockIn(type="heading", data={"text": "INVOICE", "level": 1}),
-        BlockIn(type="paragraph", data={"text": "{{invoice_number}}", "align": "right"}),
-        BlockIn(type="paragraph", data={"text": "Bill To: {{customer}}"}),
-        BlockIn(type="table", data={"rows": [["Item", "Qty", "Price", "Total"], ["{{item}}", "{{qty}}", "{{price}}", "{{total}}"]]}),
-        BlockIn(type="paragraph", data={"text": "Total Due: {{total_due}}", "align": "right"}),
-    ],
-    "business-letter": [
-        BlockIn(type="heading", data={"text": "Business Letter", "level": 1}),
-        BlockIn(type="paragraph", data={"text": "Dear {{recipient}},"}),
-        BlockIn(type="paragraph", data={"text": "{{body}}"}),
-        BlockIn(type="paragraph", data={"text": "Sincerely,\n{{sender}}"}),
-    ],
-    "resume": [
-        BlockIn(type="heading", data={"text": "{{name}}", "level": 1}),
-        BlockIn(type="paragraph", data={"text": "{{email}} | {{phone}} | {{location}}"}) ,
-        BlockIn(type="heading", data={"text": "Experience", "level": 2}),
-        BlockIn(type="list", data={"items": ["{{exp1}}", "{{exp2}}"], "ordered": False}),
-    ],
-    "report": [
-        BlockIn(type="heading", data={"text": "{{title}}", "level": 1}),
-        BlockIn(type="paragraph", data={"text": "{{summary}}"}),
-
-        BlockIn(type="heading", data={"text": "Findings", "level": 2}),
-        BlockIn(type="list", data={"items": ["{{finding1}}", "{{finding2}}"]}),
-    ],
-    "certificate": [
-        BlockIn(type="heading", data={"text": "Certificate of Completion", "level": 1}),
-        BlockIn(type="paragraph", data={"text": "This is awarded to {{recipient}}"}),
-        BlockIn(type="paragraph", data={"text": "for {{achievement}}"}),
-        BlockIn(type="paragraph", data={"text": "Date: {{date}}"}),
-    ],
-    "cover-letter": [
-        BlockIn(type="heading", data={"text": "Cover Letter", "level": 1}),
-        BlockIn(type="paragraph", data={"text": "Dear {{hiring_manager}},"}),
-        BlockIn(type="paragraph", data={"text": "{{body}}"}),
-        BlockIn(type="paragraph", data={"text": "Best regards,\n{{sender}}"}),
-    ],
-    "meeting-minutes": [
-        BlockIn(type="heading", data={"text": "Meeting Minutes", "level": 1}),
-        BlockIn(type="paragraph", data={"text": "Meeting: {{meeting}} | Date: {{date}}"}),
-        BlockIn(type="paragraph", data={"text": "Attendees: {{attendees}}"}) ,
-        BlockIn(type="heading", data={"text": "Agenda", "level": 2}),
-        BlockIn(type="list", data={"items": ["{{agenda1}}", "{{agenda2}}"]}),
-    ],
-}
+class FormatOut(BaseModel):
+    format: str
+    status: str
+    notes: str
 
 
 @router.post("/generate")
-def generate_document(
+async def generate_document(
     req: GenerateRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    blocks = _to_blocks(req.blocks)
-    if req.data:
-        blocks = fill_placeholders(blocks, req.data)
-    block_dicts = _blocks_to_dicts(blocks)
-    job_id = enqueue("generate", block_dicts, req.format, req.data or {},
-                     req.page_size, req.orientation, req.margins or {},
-                     user_id=current_user["username"])
+    try:
+        job_id = gen_service.enqueue_generate(
+            blocks=[b.model_dump() for b in req.blocks],
+            fmt=req.format,
+            data=req.data,
+            page_size=req.page_size,
+            orientation=req.orientation,
+            margins=req.margins,
+            user_id=current_user["username"],
+        )
+    except GenerationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return {"job_id": job_id, "status": "queued"}
 
 
 @router.post("/generate/template")
-def generate_template(
+async def generate_template(
     req: TemplateRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    name = req.name
-    data = req.data
-    tpl = TEMPLATES.get(name)
-    if not tpl:
-        raise HTTPException(status_code=404, detail=f"Template {name} not found")
-    blocks = _to_blocks(tpl)
-    if data:
-        blocks = fill_placeholders(blocks, data)
-    block_dicts = _blocks_to_dicts(blocks)
-    fmt = req.format
-    job_id = enqueue("generate", block_dicts, fmt, data or {},
-                     "letter", "portrait", {},
-                     user_id=current_user["username"])
-    return {"job_id": job_id, "status": "queued", "template": name}
+    try:
+        job_id = gen_service.enqueue_generate(
+            blocks=[],  # filled from template inside enqueue path below
+            fmt=req.format,
+            data=req.data,
+            page_size="letter",
+            orientation="portrait",
+            margins={},
+            user_id=current_user["username"],
+            template_name=req.name,
+        )
+    except GenerationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"job_id": job_id, "status": "queued", "template": req.name}
+
+
+@router.post("/generate/batch")
+async def generate_batch(
+    req: BatchRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        job_id = gen_service.enqueue_batch(
+            template_name=req.template,
+            rows=req.rows,
+            fmt=req.format,
+            page_size=req.page_size,
+            orientation=req.orientation,
+            margins=req.margins,
+            user_id=current_user["username"],
+        )
+    except GenerationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"job_id": job_id, "status": "queued", "template": req.template, "count": len(req.rows)}
+
+
+@router.post("/generate/batch/csv")
+async def generate_batch_csv(
+    req: BatchCsvRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        rows = gen_service.parse_csv_batch(req.csv)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid CSV: {exc}")
+    try:
+        job_id = gen_service.enqueue_batch(
+            template_name=req.template,
+            rows=rows,
+            fmt=req.format,
+            page_size=req.page_size,
+            orientation=req.orientation,
+            margins=req.margins,
+            user_id=current_user["username"],
+        )
+    except GenerationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"job_id": job_id, "status": "queued", "template": req.template, "count": len(rows)}
+
+
+@router.post("/generate/batch/json")
+async def generate_batch_json(
+    req: BatchJsonRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        rows = gen_service.parse_json_batch(req.json)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {exc}")
+    try:
+        job_id = gen_service.enqueue_batch(
+            template_name=req.template,
+            rows=rows,
+            fmt=req.format,
+            page_size=req.page_size,
+            orientation=req.orientation,
+            margins=req.margins,
+            user_id=current_user["username"],
+        )
+    except GenerationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"job_id": job_id, "status": "queued", "template": req.template, "count": len(rows)}
 
 
 @router.get("/templates")
-def list_templates():
-    return {"templates": list(TEMPLATES.keys())}
+async def list_templates():
+    from app.generation import TEMPLATES as GEN_TEMPLATES
+    return {"templates": sorted(GEN_TEMPLATES.keys())}
+
+
+@router.get("/templates/{name}/placeholders")
+async def template_placeholders(name: str):
+    from app.generation import TEMPLATES as GEN_TEMPLATES
+    tpl = GEN_TEMPLATES.get(name)
+    if not tpl:
+        raise HTTPException(status_code=404, detail=f"Template {name} not found")
+    blocks_in = [{"type": b["type"], "data": b["data"]} for b in tpl]
+    placeholders = gen_service.extract_placeholders(blocks_in)
+    return {"template": name, "placeholders": placeholders}
+
+
+@router.get("/formats", response_model=List[FormatOut])
+async def list_formats():
+    formats = []
+    for fmt in sorted(NATIVE_FORMATS | {"epub"}):
+        formats.append(FormatOut(
+            format=fmt,
+            status=FIDELITY_NOTES.get(fmt, "done"),
+            notes=FIDELITY_NOTES.get(fmt, ""),
+        ))
+    return formats
+
+
+@router.get("/jobs/{job_id}")
+async def generate_job_status(job_id: str):
+    return get_job(job_id)

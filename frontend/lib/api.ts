@@ -247,8 +247,37 @@ export async function generateTemplate(name: string, data?: Record<string, any>,
   });
 }
 
+export async function generateBatch(template: string, rows: any[], format: string, pageSize = "letter", orientation = "portrait", margins?: any) {
+  return apiRequest(`${API_BASE}/generate/batch`, {
+    method: "POST",
+    body: JSON.stringify({ template, rows, format, page_size: pageSize, orientation, margins }),
+  });
+}
+
+export async function generateBatchCsv(template: string, csv: string, format: string, pageSize = "letter", orientation = "portrait", margins?: any) {
+  return apiRequest(`${API_BASE}/generate/batch/csv`, {
+    method: "POST",
+    body: JSON.stringify({ template, csv, format, page_size: pageSize, orientation, margins }),
+  });
+}
+
+export async function generateBatchJson(template: string, json: string, format: string, pageSize = "letter", orientation = "portrait", margins?: any) {
+  return apiRequest(`${API_BASE}/generate/batch/json`, {
+    method: "POST",
+    body: JSON.stringify({ template, json, format, page_size: pageSize, orientation, margins }),
+  });
+}
+
 export async function listTemplates() {
   return apiRequest(`${API_BASE}/templates`);
+}
+
+export async function templatePlaceholders(name: string) {
+  return apiRequest(`${API_BASE}/templates/${encodeURIComponent(name)}/placeholders`);
+}
+
+export async function generateJobStatus(jobId: string) {
+  return apiRequest(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
 }
 
 export async function imagesToPdf(files: File[]) {

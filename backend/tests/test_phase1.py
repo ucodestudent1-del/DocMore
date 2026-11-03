@@ -22,6 +22,7 @@ from app.auth import (
     require_tier,
 )
 from app.models import TIER_LIMITS
+from app.services.generation_service import service as gen_service, NATIVE_FORMATS, FIDELITY_NOTES
 from fastapi import HTTPException
 
 
@@ -166,3 +167,90 @@ def test_file_size_quota_enterprise_tier():
     """Enterprise tier max file size is 100 MB."""
     limits = TIER_LIMITS.get("enterprise", {})
     assert limits.get("max_file_size_mb") == 100
+
+
+# ---------------------------------------------------------------------------
+# Generation service
+# ---------------------------------------------------------------------------
+
+def test_extract_placeholders():
+    """Placeholder extraction finds unique {{keys}} across blocks."""
+    blocks = [
+        {"type": "heading", "data": {"text": "Invoice {{invoice_number}}", "level": 1}},
+        {"type": "paragraph", "data": {"text": "Bill to: {{customer}}"}, "align": "left"},
+        {"type": "table", "data": {"rows": [["Item", "{{price}}"], ["{{item}}", "{{total}}"]]}},
+        {"type": "list", "data": {"items": ["{{note1}}", "{{note2}}"], "ordered": False}},
+    ]
+    keys = gen_service.extract_placeholders(blocks)
+    assert "invoice_number" in keys
+    assert "customer" in keys
+    assert "price" in keys
+    assert "item" in keys
+    assert "total" in keys
+    assert "note1" in keys
+    assert "note2" in keys
+    # No duplicates
+    assert len(keys) == len(set(keys))
+
+
+def test_native_formats():
+    """Native formats are all supported."""
+    for fmt in ("pdf", "docx", "odt", "html", "md", "txt"):
+        assert fmt in NATIVE_FORMATS
+
+
+def test_fidelity_notes():
+    """Fidelity notes are defined for all native formats."""
+    for fmt in NATIVE_FORMATS:
+        assert fmt in FIDELITY_NOTES
+
+
+def test_parse_csv_batch():
+    """CSV parsing produces list of dict rows."""
+    csv_text = "name,email\nAlice,alice@example.com\nBob,bob@example.com"
+    rows = gen_service.parse_csv_batch(csv_text)
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["email"] == "bob@example.com"
+
+
+def test_parse_json_batch_array():
+    """JSON array parsing works."""
+    json_text = '[{"name":"Alice"},{"name":"Bob"}]'
+    rows = gen_service.parse_json_batch(json_text)
+    assert len(rows) == 2
+
+
+def test_parse_json_batch_with_rows_key():
+    """JSON with 'rows' key works."""
+    json_text = '{"rows":[{"name":"Alice"}]}'
+    rows = gen_service.parse_json_batch(json_text)
+    assert len(rows) == 1
+
+
+def test_mime_for_pdf():
+    """PDF MIME type is correct."""
+    assert gen_service._mime_for("pdf") == "application/pdf"
+
+
+def test_mime_for_docx():
+    """DOCX MIME type is correct."""
+    assert "wordprocessingml" in gen_service._mime_for("docx")
+
+
+def test_mime_for_epub():
+    """EPUB MIME type is correct."""
+    assert gen_service._mime_for("epub") == "application/epub+zip"
+
+
+# ---------------------------------------------------------------------------
+# render_blocks direct tests (existing generation.py)
+# ---------------------------------------------------------------------------
+
+def test_render_blocks_pdf():
+    """Rendering blocks to PDF produces a valid output."""
+    from app.generation import render_blocks, HeadingBlock, ParagraphBlock
+    blocks = [HeadingBlock("Test", level=1), ParagraphBlock("Hello world")]
+    res = render_blocks(blocks, "pdf", "/tmp/test_phase1_output.pdf")
+    assert res.ok is True
+    assert res.output_path is not None

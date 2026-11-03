@@ -12,7 +12,6 @@ from app.pdf_tools import (
     extract_text, extract_images, compress_pdf, protect_pdf,
     unlock_pdf, repair_pdf, images_to_pdf, ocr_pdf,
 )
-from app.generation import render_blocks
 
 
 def _run_async(coro):
@@ -164,35 +163,75 @@ try:
 
     @celery_app.task(bind=True, name="tasks.generate")
     def generate_task(self, blocks: list, fmt: str, data: dict, page_size: str,
-                      orientation: str, margins: dict, user_id: Optional[str] = None) -> str:
+                      orientation: str, margins: dict, user_id: Optional[str] = None,
+                      template_name: Optional[str] = None) -> str:
         self.update_state(state="STARTED", meta={"progress": 10})
         from app.storage import storage as st
         import secrets
-        from pathlib import Path
-        from app.config import OUTPUT_DIR
-        from app.generation import (
-            HeadingBlock, ParagraphBlock, TableBlock, ListBlock,
-            ImageBlock, PageBreakBlock, HorizontalRuleBlock,
-        )
-        BLOCK_MAP = {
-            "heading": HeadingBlock, "paragraph": ParagraphBlock, "table": TableBlock,
-            "list": ListBlock, "image": ImageBlock, "pagebreak": PageBreakBlock,
-            "hr": HorizontalRuleBlock,
-        }
-        blocks_obj = [BLOCK_MAP[b["type"]](**b.get("data", {})) for b in blocks]
+        from app.services.generation_service import service as gen_service
+        from app.generation import fill_placeholders, TEMPLATES as GEN_TEMPLATES
+        if template_name and not blocks:
+            tpl = GEN_TEMPLATES.get(template_name)
+            if not tpl:
+                raise ValueError(f"Template {template_name} not found")
+            blocks = [{"type": b["type"], "data": b["data"]} for b in tpl]
+        blocks_obj = gen_service._to_blocks(blocks)
+        if data:
+            blocks_obj = fill_placeholders(blocks_obj, data or {})
+        block_dicts = gen_service._blocks_to_dicts(blocks_obj)
         out_id = secrets.token_urlsafe(16)
-        out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{fmt}")
-        res = render_blocks(blocks_obj, fmt, out_path, page_size=page_size,
-                            orientation=orientation, margins=margins)
+        res = gen_service.render_sync(block_dicts, fmt=fmt, page_size=page_size,
+                                      orientation=orientation, margins=margins or {})
         if not res.ok:
-            raise RuntimeError(res.error)
-        data = open(out_path, "rb").read()
-        _run_async(st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}"))
+            raise RuntimeError(res.error or "Generation failed")
+        with open(res.output_path, "rb") as f:
+            file_data = f.read()
+        original_name = f"generated_document.{fmt}"
+        if template_name:
+            original_name = f"{template_name}.{fmt}"
+        _run_async(st.save_output(out_id, file_data, fmt, user_id=user_id,
+                                  original_name=original_name))
         return out_id
+
+    @celery_app.task(bind=True, name="tasks.generate_batch")
+    def generate_batch_task(self, template_name: str, rows: list, fmt: str,
+                            page_size: str, orientation: str, margins: dict,
+                            user_id: Optional[str] = None) -> str:
+        self.update_state(state="STARTED", meta={"progress": 0})
+        from app.storage import storage as st
+        import secrets
+        from app.services.generation_service import service as gen_service
+        from app.generation import fill_placeholders, TEMPLATES as GEN_TEMPLATES
+        # Load template blocks
+        tpl_blocks = GEN_TEMPLATES.get(template_name)
+        if not tpl_blocks:
+            raise ValueError(f"Template {template_name} not found")
+        results = []
+        total = len(rows)
+        for i, row in enumerate(rows):
+            blocks_obj = gen_service._to_blocks(tpl_blocks)
+            blocks_obj = fill_placeholders(blocks_obj, row)
+            block_dicts = gen_service._blocks_to_dicts(blocks_obj)
+            out_id = secrets.token_urlsafe(16)
+            res = gen_service.render_sync(block_dicts, fmt=fmt, page_size=page_size,
+                                          orientation=orientation, margins=margins or {})
+            if not res.ok:
+                results.append({"row": i, "error": res.error})
+                continue
+            with open(res.output_path, "rb") as f:
+                file_data = f.read()
+            original_name = f"{template_name}_{i+1}.{fmt}"
+            saved = _run_async(st.save_output(out_id, file_data, fmt, user_id=user_id,
+                                              original_name=original_name))
+            results.append({"row": i, "output_id": out_id, "name": saved.get("original_name")})
+            progress = int((i + 1) / total * 100)
+            self.update_state(state="STARTED", meta={"progress": progress})
+        return {"format": fmt, "template": template_name, "total": total, "results": results}
 except Exception:  # celery not importable / broker down
     convert_task = None
     pdf_tool_task = None
     generate_task = None
+    generate_batch_task = None
 
 
 # ---- In-process task functions used by the job fallback ----
@@ -206,27 +245,62 @@ def pdf_tool(tool: str, **kwargs) -> str:
 
 def generate(blocks: list, fmt: str, data: dict, page_size: str = "letter",
              orientation: str = "portrait", margins: dict = None,
-             user_id: Optional[str] = None) -> str:
+             user_id: Optional[str] = None,
+             template_name: Optional[str] = None) -> str:
     from app.storage import storage as st
     import secrets
-    from pathlib import Path
-    from app.config import OUTPUT_DIR
-    from app.generation import (
-        HeadingBlock, ParagraphBlock, TableBlock, ListBlock,
-        ImageBlock, PageBreakBlock, HorizontalRuleBlock,
-    )
-    BLOCK_MAP = {
-        "heading": HeadingBlock, "paragraph": ParagraphBlock, "table": TableBlock,
-        "list": ListBlock, "image": ImageBlock, "pagebreak": PageBreakBlock,
-        "hr": HorizontalRuleBlock,
-    }
-    blocks_obj = [BLOCK_MAP[b["type"]](**b.get("data", {})) for b in blocks]
+    from app.services.generation_service import service as gen_service
+    from app.generation import fill_placeholders, TEMPLATES as GEN_TEMPLATES
+    if template_name and not blocks:
+        tpl = GEN_TEMPLATES.get(template_name)
+        if not tpl:
+            raise ValueError(f"Template {template_name} not found")
+        blocks = [{"type": b["type"], "data": b["data"]} for b in tpl]
+    blocks_obj = gen_service._to_blocks(blocks)
+    if data:
+        blocks_obj = fill_placeholders(blocks_obj, data or {})
+    block_dicts = gen_service._blocks_to_dicts(blocks_obj)
     out_id = secrets.token_urlsafe(16)
-    out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{fmt}")
-    res = render_blocks(blocks_obj, fmt, out_path, page_size=page_size,
-                        orientation=orientation, margins=margins or {})
+    res = gen_service.render_sync(block_dicts, fmt=fmt, page_size=page_size,
+                                  orientation=orientation, margins=margins or {})
     if not res.ok:
-        raise RuntimeError(res.error)
-    data = open(out_path, "rb").read()
-    _run_async(st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}"))
+        raise RuntimeError(res.error or "Generation failed")
+    with open(res.output_path, "rb") as f:
+        file_data = f.read()
+    original_name = f"generated_document.{fmt}"
+    if template_name:
+        original_name = f"{template_name}.{fmt}"
+    _run_async(st.save_output(out_id, file_data, fmt, user_id=user_id,
+                              original_name=original_name))
     return out_id
+
+
+def generate_batch(template_name: str, rows: list, fmt: str,
+                   page_size: str = "letter", orientation: str = "portrait",
+                   margins: dict = None, user_id: Optional[str] = None) -> str:
+    from app.storage import storage as st
+    import secrets
+    from app.services.generation_service import service as gen_service
+    from app.generation import fill_placeholders, TEMPLATES as GEN_TEMPLATES
+    tpl_blocks = GEN_TEMPLATES.get(template_name)
+    if not tpl_blocks:
+        raise ValueError(f"Template {template_name} not found")
+    results = []
+    total = len(rows)
+    for i, row in enumerate(rows):
+        blocks_obj = gen_service._to_blocks(tpl_blocks)
+        blocks_obj = fill_placeholders(blocks_obj, row)
+        block_dicts = gen_service._blocks_to_dicts(blocks_obj)
+        out_id = secrets.token_urlsafe(16)
+        res = gen_service.render_sync(block_dicts, fmt=fmt, page_size=page_size,
+                                      orientation=orientation, margins=margins or {})
+        if not res.ok:
+            results.append({"row": i, "error": res.error})
+            continue
+        with open(res.output_path, "rb") as f:
+            file_data = f.read()
+        original_name = f"{template_name}_{i+1}.{fmt}"
+        saved = _run_async(st.save_output(out_id, file_data, fmt, user_id=user_id,
+                                          original_name=original_name))
+        results.append({"row": i, "output_id": out_id, "name": saved.get("original_name")})
+    return {"format": fmt, "template": template_name, "total": total, "results": results}
