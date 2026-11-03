@@ -1,7 +1,7 @@
 """API routes: admin (user management, tier management, stats)."""
 
 from typing import List
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import require_admin, get_user_by_username
 from app.database import get_db
 from app.models import User, Upload, Output, Job, TIER_LIMITS
+from app.storage import storage
+from app.prisma_client import get_prisma
 
 
 router = APIRouter(tags=["admin"], prefix="/api/admin")
@@ -155,3 +157,96 @@ async def get_stats(current_user: dict = Depends(require_admin), db: AsyncSessio
         jobs_by_status=jobs_by_status,
         users_by_tier=users_by_tier,
     )
+
+
+# ---------------------------------------------------------------------------
+# Admin jobs listing
+# ---------------------------------------------------------------------------
+
+@router.get("/jobs")
+async def admin_jobs(
+    current_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 100,
+    offset: int = 0,
+):
+    """List all jobs across the platform (admin only)."""
+    result = await db.execute(
+        select(Job).order_by(Job.created_at.desc()).offset(offset).limit(limit)
+    )
+    jobs = result.scalars().all()
+    return {
+        "jobs": [
+            {
+                "id": j.id,
+                "user_id": j.user_id,
+                "task_name": j.task_name,
+                "status": j.status,
+                "progress": j.progress,
+                "error": j.error,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+                "completed_at": j.completed_at.isoformat() if j.completed_at else None,
+            }
+            for j in jobs
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Retention & GDPR deletion
+# ---------------------------------------------------------------------------
+
+class RetentionRunResponse(BaseModel):
+    removed_files: int
+    removed_users: int
+
+
+@router.post("/retention/run", response_model=RetentionRunResponse)
+async def run_retention(
+    current_user: dict = Depends(require_admin),
+    hours: int = Query(24, ge=1),
+):
+    """Run retention cleanup: remove files older than `hours` (admin only)."""
+    removed_files = await storage.cleanup_old(hours=hours)
+    return RetentionRunResponse(removed_files=removed_files, removed_users=0)
+
+
+@router.delete("/users/{username}/gdpr")
+async def gdpr_delete_user(
+    username: str,
+    current_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """GDPR deletion: delete a user and all their data (admin only)."""
+    if username == current_user["username"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account",
+        )
+    # Delete user's files via storage backend
+    from app.storage import storage as st
+    history = await st.list_history(user_id=username)
+    for entry in history:
+        await st.delete_file(entry["id"], user_id=username)
+    # Delete user from DB (cascades uploads/outputs/jobs/sessions)
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.delete(user)
+    await db.commit()
+    # Audit log via Prisma
+    prisma = get_prisma()
+    try:
+        await prisma.auditlog.create({
+            "action": "GDPR_DELETE",
+            "target": username,
+            "metadata": {"deleted_by": current_user["username"]},
+        })
+    finally:
+        await prisma.disconnect()
+    return {"detail": f"User {username} and all data deleted (GDPR)"}
+
+
+__all__ = ["router"]
+

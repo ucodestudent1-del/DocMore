@@ -243,7 +243,7 @@ model UsageRecord {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([userId, month], map: "usage_user_month_idx")
+  @@unique([userId, month], map: "usage_user_month_unique")
 }
 
 model AuditLog {

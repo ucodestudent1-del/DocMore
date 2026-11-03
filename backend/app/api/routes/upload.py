@@ -5,7 +5,7 @@ from app.storage import storage
 from app.api.routes.auth import get_current_user_optional
 from app.rate_limiter import check_rate_limit_dependency
 from app.malware import scan_bytes
-from app.models import TIER_LIMITS
+from app.usage_service import usage_service, QuotaExceeded
 
 router = APIRouter(tags=["upload"])
 
@@ -19,18 +19,14 @@ async def upload_file(
     if user_id:
         await check_rate_limit_dependency(user_id)
 
-        # Enforce per-tier file size quota.
-        user_tier = current_user.get("tier", "free")
-        limits = TIER_LIMITS.get(user_tier, TIER_LIMITS["free"])
-        max_size_mb = limits.get("max_file_size_mb", 10)
-        content = await file.read()
-        if len(content) > max_size_mb * 1024 * 1024:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large for {user_tier} tier (max {max_size_mb} MB)",
-            )
-    else:
-        content = await file.read()
+        # Enforce per-tier file size quota via UsageService.
+        await usage_service.check_upload_quota(user_id, 0)  # size checked below
+
+    content = await file.read()
+
+    if user_id:
+        # Re-check with actual file size.
+        await usage_service.check_upload_quota(user_id, len(content))
 
     # Malware scan (graceful degradation if ClamAV unavailable).
     scan_result = scan_bytes(content, file.filename or "file")
@@ -46,8 +42,18 @@ async def upload_file(
             file.filename or "file",
             user_id=user_id,
         )
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=402, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    # Record usage for authenticated users.
+    if user_id:
+        try:
+            await usage_service.record_conversion(user_id, len(content))
+        except Exception:
+            pass  # Usage recording should not fail the upload
+
     return {
         "id": entry["id"],
         "original_name": entry["original_name"],

@@ -1,8 +1,9 @@
-"""Payment processing with Stripe."""
+"""Payment processing with Stripe — idempotent webhooks, customer portal, subscription management."""
 
 import os
-from typing import Dict, Any, Optional
+from typing import Optional
 from fastapi import HTTPException
+from datetime import datetime, timezone
 
 try:
     import stripe
@@ -12,6 +13,7 @@ except ImportError:
     _HAS_STRIPE = False
 
 from app.config import STRIPE_SECRET_KEY, FRONTEND_URL
+from app.prisma_client import get_prisma
 
 if _HAS_STRIPE and STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
@@ -20,7 +22,7 @@ if _HAS_STRIPE and STRIPE_SECRET_KEY:
 # Subscription tier pricing (in cents)
 TIER_PRICING = {
     "free": {"monthly": 0, "yearly": 0},
-    "premium": {"monthly": 999, "yearly": 9990},  # $9.99/mo, $99.90/yr
+    "premium": {"monthly": 999, "yearly": 9990},   # $9.99/mo, $99.90/yr
     "enterprise": {"monthly": 4999, "yearly": 49990},  # $49.99/mo, $499.90/yr
 }
 
@@ -59,7 +61,7 @@ def create_checkout_session(user_id: str, tier: str, interval: str = "monthly") 
                 "quantity": 1,
             }],
             mode="subscription",
-            customer_email=None,  # Will be set by customer
+            customer_email=None,
             metadata={
                 "user_id": user_id,
                 "tier": tier,
@@ -73,9 +75,31 @@ def create_checkout_session(user_id: str, tier: str, interval: str = "monthly") 
         raise HTTPException(status_code=500, detail=f"Payment processing error: {str(e)}")
 
 
-def handle_webhook(payload: bytes, sig_header: str) -> dict:
-    """Handle Stripe webhook events."""
-    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_placeholder")
+def create_customer_portal_session(customer_id: str) -> dict:
+    """Create a Stripe customer portal session for subscription management."""
+    if not _HAS_STRIPE or not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Payment processing not configured")
+
+    try:
+        portal_session = stripe.billingportal.Session.create(
+            customer=customer_id,
+            return_url=f"{FRONTEND_URL}/settings",
+        )
+        return {"portal_url": portal_session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Portal session error: {str(e)}")
+
+
+async def handle_webhook(payload: bytes, sig_header: str) -> dict:
+    """Handle Stripe webhook events with idempotency.
+
+    Tracks processed events in the audit log / a dedicated events table
+    (via Prisma) so duplicate webhook deliveries are safely ignored.
+    """
+    if not _HAS_STRIPE:
+        raise HTTPException(status_code=503, detail="Stripe not configured")
+
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
@@ -84,60 +108,98 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
     except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    event_type = event["type"]
-    data = event["data"]["object"]
+    event_id = event.get("id")
+    event_type = event.get("type")
 
-    if event_type == "checkout.session.completed":
-        # Subscription checkout completed
-        metadata = data.get("metadata", {})
-        user_id = metadata.get("user_id")
-        tier = metadata.get("tier")
+    # Idempotency: check if we already processed this event
+    prisma = get_prisma()
+    existing = await prisma.auditlog.find_first(
+        where={
+            "action": "STRIPE_WEBHOOK",
+            "target": event_id,
+        },
+    )
+    if existing:
+        return {"status": "ignored", "event_type": event_type, "reason": "already_processed"}
 
-        if user_id and tier:
-            _update_user_tier(user_id, tier)
-            return {"status": "success", "action": "subscription_updated", "user_id": user_id, "tier": tier}
-
-    elif event_type == "customer.subscription.updated":
-        # Subscription updated
-        metadata = data.get("metadata", {})
-        user_id = metadata.get("user_id")
-        tier = metadata.get("tier")
-
-        if user_id and tier:
-            _update_user_tier(user_id, tier)
-            return {"status": "success", "action": "subscription_updated", "user_id": user_id, "tier": tier}
-
-    elif event_type == "customer.subscription.deleted":
-        # Subscription cancelled - downgrade to free
-        metadata = data.get("metadata", {})
-        user_id = metadata.get("user_id")
-
-        if user_id:
-            _update_user_tier(user_id, "free")
-            return {"status": "success", "action": "subscription_cancelled", "user_id": user_id}
-
-    return {"status": "ignored", "event_type": event_type}
-
-
-def _update_user_tier(user_id: str, tier: str) -> None:
-    """Update user tier in database (synchronous, called from webhook handler)."""
-    import asyncio
-    from app.database import async_session
-    from app.models import User
-    from sqlalchemy import update as sql_update
-
-    async def _do_update():
-        async with async_session() as db:
-            stmt = sql_update(User).where(User.username == user_id).values(tier=tier)
-            await db.execute(stmt)
-            await db.commit()
+    data = event.get("data", {}).get("object", {})
+    metadata = data.get("metadata", {})
+    user_id = metadata.get("user_id")
+    tier = metadata.get("tier")
 
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're in an async context; schedule but don't await
-            asyncio.ensure_future(_do_update())
-        else:
-            loop.run_until_complete(_do_update())
-    except RuntimeError:
-        asyncio.run(_do_update())
+        if event_type == "checkout.session.completed":
+            if user_id and tier:
+                await _update_user_tier_prisma(user_id, tier)
+                await _record_webhook_event(prisma, event_id, event_type, user_id, tier)
+                return {"status": "success", "action": "subscription_updated", "user_id": user_id, "tier": tier}
+
+        elif event_type == "customer.subscription.updated":
+            if user_id and tier:
+                await _update_user_tier_prisma(user_id, tier)
+                await _record_webhook_event(prisma, event_id, event_type, user_id, tier)
+                return {"status": "success", "action": "subscription_updated", "user_id": user_id, "tier": tier}
+
+        elif event_type == "customer.subscription.deleted":
+            if user_id:
+                await _update_user_tier_prisma(user_id, "free")
+                await _record_webhook_event(prisma, event_id, event_type, user_id, "free")
+                return {"status": "success", "action": "subscription_cancelled", "user_id": user_id}
+
+        await _record_webhook_event(prisma, event_id, event_type, user_id, tier or "ignored")
+        return {"status": "ignored", "event_type": event_type}
+    finally:
+        await prisma.disconnect()
+
+
+async def _update_user_tier_prisma(user_id: str, tier: str) -> None:
+    """Update user tier in PostgreSQL via Prisma."""
+    prisma = get_prisma()
+    try:
+        await prisma.user.update(
+            where={"id": user_id},
+            data={"tier": tier},
+        )
+    except Exception:
+        # User may not exist yet; try by username
+        await prisma.user.update(
+            where={"username": user_id},
+            data={"tier": tier},
+        )
+    finally:
+        await prisma.disconnect()
+
+
+async def _record_webhook_event(prisma, event_id: str, event_type: str, user_id: Optional[str], tier: Optional[str]) -> None:
+    """Record a processed webhook event for idempotency."""
+    await prisma.auditlog.create({
+        "action": "STRIPE_WEBHOOK",
+        "target": event_id,
+        "targetId": None,
+        "metadata": {
+            "event_type": event_type,
+            "user_id": user_id,
+            "tier": tier,
+        },
+        "createdAt": datetime.now(timezone.utc),
+    })
+
+
+def get_tier_pricing(tier: str, interval: str = "monthly") -> int:
+    """Return price in cents for a tier/interval."""
+    return TIER_PRICING.get(tier, {}).get(interval, 0)
+
+
+def is_configured() -> bool:
+    return bool(STRIPE_SECRET_KEY) and _HAS_STRIPE
+
+
+__all__ = [
+    "create_checkout_session",
+    "create_customer_portal_session",
+    "handle_webhook",
+    "get_tier_pricing",
+    "is_configured",
+    "TIER_PRICING",
+    "TIER_NAMES",
+]

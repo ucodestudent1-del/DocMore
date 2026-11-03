@@ -22,6 +22,8 @@ from app.services.generation_service import (
 )
 from app.jobs import get_job
 from app.api.routes.auth import get_current_user
+from app.rate_limiter import check_rate_limit_dependency
+from app.usage_service import usage_service
 
 router = APIRouter(tags=["generate"])
 
@@ -84,6 +86,11 @@ async def generate_document(
     req: GenerateRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    user_id = current_user["username"]
+    await check_rate_limit_dependency(user_id)
+    await usage_service.check_conversion_quota(user_id)
+    await usage_service.check_concurrent_job_quota(user_id)
+
     try:
         job_id = gen_service.enqueue_generate(
             blocks=[b.model_dump() for b in req.blocks],
@@ -104,6 +111,11 @@ async def generate_template(
     req: TemplateRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    user_id = current_user["username"]
+    await check_rate_limit_dependency(user_id)
+    await usage_service.check_conversion_quota(user_id)
+    await usage_service.check_concurrent_job_quota(user_id)
+
     try:
         job_id = gen_service.enqueue_generate(
             blocks=[],  # filled from template inside enqueue path below
@@ -125,6 +137,11 @@ async def generate_batch(
     req: BatchRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    user_id = current_user["username"]
+    await check_rate_limit_dependency(user_id)
+    await usage_service.check_conversion_quota(user_id)
+    await usage_service.check_concurrent_job_quota(user_id)
+
     try:
         job_id = gen_service.enqueue_batch(
             template_name=req.template,
@@ -145,6 +162,11 @@ async def generate_batch_csv(
     req: BatchCsvRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    user_id = current_user["username"]
+    await check_rate_limit_dependency(user_id)
+    await usage_service.check_conversion_quota(user_id)
+    await usage_service.check_concurrent_job_quota(user_id)
+
     try:
         rows = gen_service.parse_csv_batch(req.csv)
     except Exception as exc:
@@ -169,6 +191,11 @@ async def generate_batch_json(
     req: BatchJsonRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    user_id = current_user["username"]
+    await check_rate_limit_dependency(user_id)
+    await usage_service.check_conversion_quota(user_id)
+    await usage_service.check_concurrent_job_quota(user_id)
+
     try:
         rows = gen_service.parse_json_batch(req.json)
     except Exception as exc:

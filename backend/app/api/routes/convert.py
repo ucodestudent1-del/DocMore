@@ -7,6 +7,7 @@ from app.registry import registry
 from app.jobs import enqueue, get_job
 from app.api.routes.auth import get_current_user_optional
 from app.rate_limiter import check_rate_limit_dependency
+from app.usage_service import usage_service
 
 router = APIRouter(tags=["convert"])
 
@@ -25,6 +26,11 @@ async def convert_file(
     user_id = current_user["username"] if current_user else None
     if user_id:
         await check_rate_limit_dependency(user_id)
+
+        # Enforce conversion quota (per hour) and concurrent job limit.
+        await usage_service.check_conversion_quota(user_id)
+        await usage_service.check_concurrent_job_quota(user_id)
+
     source = await storage.read_file(req.file_id)
     if not source:
         raise HTTPException(status_code=404, detail="File not found")

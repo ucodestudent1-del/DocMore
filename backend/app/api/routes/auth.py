@@ -15,6 +15,7 @@ from app.auth import (
     get_current_user,
     get_current_user_optional,  # noqa: F401 — re-exported for route modules
     get_current_user_from_refresh,
+    require_admin,
     create_user,
     get_user_by_username,
     get_user_by_email,

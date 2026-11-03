@@ -530,3 +530,80 @@ export async function exportDocument(docId: string, format: string) {
     method: "POST",
   });
 }
+
+/* ---- Billing / subscription endpoints ---- */
+
+export async function createCheckout(tier: string, interval: string = "monthly") {
+  return apiRequest(`${API_BASE}/payments/checkout`, {
+    method: "POST",
+    body: JSON.stringify({ tier, interval }),
+  });
+}
+
+export async function createCustomerPortal() {
+  return apiRequest(`${API_BASE}/payments/portal`, {
+    method: "POST",
+  });
+}
+
+export async function getSubscription() {
+  return apiRequest(`${API_BASE}/payments/subscription`);
+}
+
+export async function getPricing() {
+  return apiRequest(`${API_BASE}/payments/pricing`);
+}
+
+export async function isStripeConfigured() {
+  return apiRequest(`${API_BASE}/payments/configured`);
+}
+
+/* ---- Usage / quota endpoints ---- */
+
+export async function getUsage() {
+  return apiRequest(`${API_BASE}/usage`);
+}
+
+/* ---- Admin endpoints ---- */
+
+export async function adminListUsers() {
+  return apiRequest(`${API_BASE}/admin/users`);
+}
+
+export async function adminUpdateUser(username: string, body: { tier?: string; role?: string; is_verified?: boolean }) {
+  return apiRequest(`${API_BASE}/admin/users/${encodeURIComponent(username)}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function adminDeleteUser(username: string) {
+  return apiRequest(`${API_BASE}/admin/users/${encodeURIComponent(username)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function adminListTiers() {
+  return apiRequest(`${API_BASE}/admin/tiers`);
+}
+
+export async function adminGetStats() {
+  return apiRequest(`${API_BASE}/admin/stats`);
+}
+
+export async function adminListJobs() {
+  return apiRequest(`${API_BASE}/admin/jobs`);
+}
+
+export async function adminRunRetention(hours: number = 24) {
+  return apiRequest(`${API_BASE}/admin/retention/run`, {
+    method: "POST",
+    body: JSON.stringify({ hours }),
+  });
+}
+
+export async function adminGDPRDeleteUser(username: string) {
+  return apiRequest(`${API_BASE}/admin/users/${encodeURIComponent(username)}/gdpr`, {
+    method: "DELETE",
+  });
+}
