@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { LogIn, Mail, Lock, AlertTriangle, ArrowRight } from "lucide-react";
+import { LogIn, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
