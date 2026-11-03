@@ -6,7 +6,7 @@ Uses SQLAlchemy with async support for PostgreSQL.
 from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Float, Text, ForeignKey, Index
+    Integer, String, DateTime, Text, ForeignKey
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
 
@@ -60,6 +60,7 @@ class User(Base):
     uploads: Mapped[List["Upload"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     outputs: Mapped[List["Output"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     jobs: Mapped[List["Job"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[List["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Upload(Base):
@@ -135,6 +136,23 @@ class Subscription(Base):
     cancel_at_period_end: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+
+
+class Session(Base):
+    """User session for refresh-token rotation and revocation."""
+    __tablename__ = "sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, index=True)
+    user_id: Mapped[str] = mapped_column(String(255), ForeignKey("users.username"), nullable=False, index=True)
+    refresh_token: Mapped[str] = mapped_column(String(512), unique=True, index=True, nullable=False)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User")

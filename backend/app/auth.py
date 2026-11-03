@@ -15,9 +15,11 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.config import (
+    SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS,
+)
 from app.database import async_session, get_db
-from app.models import User
+from app.models import User, Session
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
@@ -49,6 +51,81 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+async def create_session(
+    db: AsyncSession,
+    user_id: str,
+    refresh_token: str,
+    user_agent: Optional[str] = None,
+    ip_address: Optional[str] = None,
+) -> Session:
+    import uuid
+    session = Session(
+        id=uuid.uuid4().hex,
+        user_id=user_id,
+        refresh_token=refresh_token,
+        user_agent=user_agent,
+        ip_address=ip_address,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session
+
+
+async def get_session_by_refresh_token(
+    db: AsyncSession,
+    refresh_token: str,
+) -> Optional[Session]:
+    result = await db.execute(
+        select(Session).where(Session.refresh_token == refresh_token)
+    )
+    return result.scalar_one_or_none()
+
+
+async def revoke_session(db: AsyncSession, refresh_token: str) -> bool:
+    session = await get_session_by_refresh_token(db, refresh_token)
+    if session is None:
+        return False
+    session.revoked_at = datetime.now(timezone.utc)
+    await db.commit()
+    return True
+
+
+async def revoke_all_sessions(db: AsyncSession, user_id: str) -> int:
+    result = await db.execute(
+        select(Session).where(Session.user_id == user_id, Session.revoked_at.is_(None))
+    )
+    sessions = result.scalars().all()
+    now = datetime.now(timezone.utc)
+    for session in sessions:
+        session.revoked_at = now
+    await db.commit()
+    return len(sessions)
+
+
+def verify_refresh_token(token: str) -> Optional[str]:
+    """Verify a refresh JWT and return the username (sub)."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            return None
+        username: str = payload.get("sub")
+        return username if username else None
+    except JWTError:
+        return None
 
 
 def verify_token(token: str) -> Optional[str]:
@@ -201,14 +278,11 @@ async def delete_account(
     user = user_result.scalar_one_or_none()
     if user is None:
         return
-    # Delete user's files from filesystem
+    # Delete user's files via storage backend
     from app.storage import storage as st
-    for entry in list(st._history):
-        if entry.get("user_id") == username:
-            st.delete_file(entry["id"])
-    # Remove from history
-    st._history = [e for e in st._history if e.get("user_id") != username]
-    st._save_history()
+    history = await st.list_history(user_id=username)
+    for entry in history:
+        await st.delete_file(entry["id"], user_id=username)
     await db.delete(user)
     await db.commit()
 
@@ -326,3 +400,76 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
             detail="Admin access required",
         )
     return current_user
+
+
+TIER_HIERARCHY = {"free": 0, "premium": 1, "enterprise": 2}
+
+
+def require_tier(min_tier: str):
+    """Dependency factory: require the user's tier to be at least `min_tier`."""
+
+    async def _checker(current_user: dict = Depends(get_current_user)) -> dict:
+        user_tier = current_user.get("tier", "free")
+        if TIER_HIERARCHY.get(user_tier, 0) < TIER_HIERARCHY.get(min_tier, 0):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Subscription tier '{min_tier}' or higher required",
+            )
+        return current_user
+
+    return _checker
+
+
+# ---------------------------------------------------------------------------
+# Refresh-token / session dependencies
+# ---------------------------------------------------------------------------
+
+async def get_current_user_from_refresh(
+    refresh_token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Authenticate via a refresh token stored in an httpOnly cookie.
+
+    Validates the JWT, checks the session table (not revoked, not expired),
+    and returns the user. Used by /auth/refresh.
+    """
+    if refresh_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    username = verify_refresh_token(refresh_token)
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    session = await get_session_by_refresh_token(db, refresh_token)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session not found or revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if session.revoked_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if session.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = await get_user_by_username(db, username)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user

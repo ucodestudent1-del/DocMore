@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import asyncio
 from typing import Optional
 
 from app.registry import registry
@@ -14,10 +15,24 @@ from app.pdf_tools import (
 from app.generation import render_blocks
 
 
+def _run_async(coro):
+    """Run an async coroutine synchronously (used by background task workers)."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, coro)
+                return future.result()
+        return asyncio.run(coro)
+    except RuntimeError:
+        return asyncio.run(coro)
+
+
 def _run_conversion(job_id: str, file_id: str, target: str, options: dict, user_id: Optional[str] = None) -> str:
     from app.storage import storage as st
     from pathlib import Path
-    source_entry = st.get_file_entry(file_id, user_id=user_id)
+    source_entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
     if not source_entry:
         raise FileNotFoundError(f"Source file {file_id} not found")
     source = Path(source_entry["path"])
@@ -33,9 +48,9 @@ def _run_conversion(job_id: str, file_id: str, target: str, options: dict, user_
     with open(target_path, "rb") as f:
         data = f.read()
     # Look up the source file's original name for meaningful history display
-    source_entry = st.get_file_entry(file_id, user_id=user_id)
+    source_entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
     original_name = source_entry.get("original_name", source.stem) if source_entry else source.stem
-    st.save_output(out_id, data, target, user_id=user_id, original_name=original_name)
+    _run_async(st.save_output(out_id, data, target, user_id=user_id, original_name=original_name))
     return out_id
 
 
@@ -49,7 +64,7 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
     file_id = kwargs.get("file_id")
     src = None
     if file_id:
-        src_entry = st.get_file_entry(file_id, user_id=user_id)
+        src_entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
         if not src_entry:
             raise FileNotFoundError(f"Source file {file_id} not found")
         src = Path(src_entry["path"])
@@ -60,7 +75,7 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
     if tool == "merge":
         paths = []
         for fid in kwargs["file_ids"]:
-            fid_entry = st.get_file_entry(fid, user_id=user_id)
+            fid_entry = _run_async(st.get_file_entry(fid, user_id=user_id))
             if not fid_entry:
                 raise FileNotFoundError(f"Merge source file {fid} not found")
             p = Path(fid_entry["path"])
@@ -113,7 +128,7 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
     user_id = kwargs.get("user_id")
     original_name = None
     if file_id:
-        source_entry = st.get_file_entry(file_id, user_id=user_id)
+        source_entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
         original_name = source_entry.get("original_name", src.stem) if source_entry else src.stem
     elif tool == "merge":
         original_name = "merged.pdf"
@@ -125,11 +140,11 @@ def _run_pdf_tool(job_id: str, tool: str, **kwargs) -> str:
         shutil.make_archive(zip_path, "zip", out_dir)
         with open(f"{zip_path}.zip", "rb") as f:
             data = f.read()
-        st.save_output(out_id, data, "zip", user_id=user_id, original_name=original_name or f"{out_id}.zip")
+        _run_async(st.save_output(out_id, data, "zip", user_id=user_id, original_name=original_name or f"{out_id}.zip"))
     else:
         with open(out_path, "rb") as f:
             data = f.read()
-        st.save_output(out_id, data, "txt" if tool == "extract_text" else "pdf", user_id=user_id, original_name=original_name or out_id)
+        _run_async(st.save_output(out_id, data, "txt" if tool == "extract_text" else "pdf", user_id=user_id, original_name=original_name or out_id))
     return out_id
 
 
@@ -172,7 +187,7 @@ try:
         if not res.ok:
             raise RuntimeError(res.error)
         data = open(out_path, "rb").read()
-        st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}")
+        _run_async(st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}"))
         return out_id
 except Exception:  # celery not importable / broker down
     convert_task = None
@@ -213,5 +228,5 @@ def generate(blocks: list, fmt: str, data: dict, page_size: str = "letter",
     if not res.ok:
         raise RuntimeError(res.error)
     data = open(out_path, "rb").read()
-    st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}")
+    _run_async(st.save_output(out_id, data, fmt, user_id=user_id, original_name=f"generated_document.{fmt}"))
     return out_id

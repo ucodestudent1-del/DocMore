@@ -38,10 +38,15 @@ AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "everydoc-uploads")
 AWS_S3_REGION = os.getenv("AWS_S3_REGION", "us-east-1")
 AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", None)  # For MinIO or other S3-compatible
 
+# Malware scanning (ClamAV)
+CLAMAV_HOST = os.getenv("CLAMAV_HOST", "localhost")
+CLAMAV_PORT = int(os.getenv("CLAMAV_PORT", "3310"))
+
 # Auth config
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 ALLOWED_EXTENSIONS = {
     # Documents

@@ -13,4 +13,4 @@ async def get_history(
     limit: int = 100,
     current_user: dict = Depends(get_current_user),
 ):
-    return {"history": storage.list_history(limit=limit, user_id=current_user["username"])}
+    return {"history": await storage.list_history(limit=limit, user_id=current_user["username"])}

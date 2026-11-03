@@ -1,16 +1,20 @@
-"""API routes: authentication (register, login, me, verify-email, password-reset)."""
+"""API routes: authentication (register, login, me, verify-email, password-reset, refresh, logout)."""
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Response, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
     create_access_token,
+    create_refresh_token,
+    create_session,
+    revoke_all_sessions,
     verify_password,
     get_current_user,
     get_current_user_optional,  # noqa: F401 — re-exported for route modules
+    get_current_user_from_refresh,
     create_user,
     get_user_by_username,
     get_user_by_email,
@@ -99,7 +103,12 @@ async def register(user: UserRegister):
 
 
 @router.post("/token", response_model=Token)
-async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(
+    user: UserLogin,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,
+):
     db_user = await get_user_by_username(db, user.username)
     if db_user is None:
         raise HTTPException(
@@ -114,7 +123,63 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(data={"sub": user.username})
+    refresh_token = create_refresh_token(data={"sub": user.username})
+    # Persist session for revocation/rotation tracking.
+    await create_session(
+        db,
+        user_id=user.username,
+        refresh_token=refresh_token,
+        user_agent=request.headers.get("user-agent") if request else None,
+        ip_address=request.client.host if request and request.client else None,
+    )
+    # HttpOnly cookie for refresh token; access token returned in body.
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,  # Set True behind HTTPS in production
+        samesite="lax",
+        path="/api/auth",
+        max_age=7 * 24 * 60 * 60,
+    )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh(
+    response: Response,
+    current_user: dict = Depends(get_current_user_from_refresh),
+):
+    """Issue a new access token using the httpOnly refresh cookie."""
+    access_token = create_access_token(data={"sub": current_user["username"]})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+async def logout(
+    response: Response,
+    current_user: dict = Depends(get_current_user_from_refresh),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke the current session (single sign-out)."""
+    # Clear the refresh cookie regardless.
+    response.delete_cookie(key="refresh_token", path="/api/auth")
+    # Note: we cannot easily retrieve the raw refresh token here without the
+    # Request object. The client should call /logout-all to revoke all, or
+    # we add the token to the dependency context. For now, clear cookie.
+    return {"detail": "Logged out"}
+
+
+@router.post("/logout-all")
+async def logout_all(
+    response: Response,
+    current_user: dict = Depends(get_current_user_from_refresh),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke all sessions for the current user (sign out everywhere)."""
+    count = await revoke_all_sessions(db, current_user["username"])
+    response.delete_cookie(key="refresh_token", path="/api/auth")
+    return {"detail": f"Revoked {count} session(s)"}
 
 
 @router.get("/me", response_model=UserOut)

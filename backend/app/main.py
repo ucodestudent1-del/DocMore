@@ -16,10 +16,12 @@ from app.api.routes import (
     compare,
     payments,
     admin,
+    files,
 )
 from app.config import FRONTEND_URL
 from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
 from app.database import init_db
+from app.prisma_client import connect_db, disconnect_db
 import os
 from pathlib import Path
 
@@ -29,6 +31,12 @@ app = FastAPI(title="Universal Document Studio", version="1.0.0")
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await connect_db()
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await disconnect_db()
 
 
 # Consistent error response format
@@ -72,6 +80,7 @@ app.include_router(auth.router, prefix="/api/auth")
 app.include_router(compare.router, prefix="/api")
 app.include_router(payments.router, prefix="/api/payments")
 app.include_router(admin.router)
+app.include_router(files.router, prefix="/api")
 
 
 @app.get("/api/health")

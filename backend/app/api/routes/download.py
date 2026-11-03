@@ -10,12 +10,12 @@ router = APIRouter(tags=["download"])
 
 @router.get("/download/{file_id}")
 async def download_file(file_id: str, current_user: dict | None = Depends(get_current_user_optional)):
-    path = storage.read_file(file_id)
+    path = await storage.read_file(file_id)
     if not path or not path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     # Verify the user owns this file if authenticated
     if current_user:
-        entry = storage.get_file_entry(file_id, current_user["username"])
+        entry = await storage.get_file_entry(file_id, current_user["username"])
         if not entry:
             raise HTTPException(status_code=403, detail="Not authorized to access this file")
     return FileResponse(path, filename=path.name)

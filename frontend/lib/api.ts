@@ -30,19 +30,56 @@ export function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (isRefreshing) return refreshPromise ?? null;
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        credentials: "include", // sends httpOnly refresh_token cookie
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.access_token as string | null;
+      }
+      return null;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise ?? null;
+}
+
 export async function apiRequest(input: RequestInfo | URL, init?: RequestInit) {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...authHeaders(),
     ...(init?.headers || {}),
   };
-  const res = await fetch(input, { ...init, headers });
+  let res = await fetch(input, { ...init, headers, credentials: "include" });
   if (res.status === 401) {
-    clearToken();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
+    // Try refreshing the access token once.
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      setToken(newToken);
+      const newHeaders: HeadersInit = {
+        ...headers,
+        Authorization: `Bearer ${newToken}`,
+      };
+      res = await fetch(input, { ...init, headers: newHeaders, credentials: "include" });
     }
-    throw new Error("Authentication required");
+    if (res.status === 401) {
+      clearToken();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      throw new Error("Authentication required");
+    }
   }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -56,7 +93,12 @@ export async function apiRequest(input: RequestInfo | URL, init?: RequestInit) {
 export async function uploadFile(file: File) {
   const fd = new FormData();
   fd.append("file", file);
-  const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd, headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/upload`, {
+    method: "POST",
+    body: fd,
+    headers: authHeaders(),
+    credentials: "include",
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Upload failed ${res.status}`);
@@ -72,25 +114,29 @@ export async function convertFile(fileId: string, target: string, options: Recor
 }
 
 export async function downloadFile(fileId: string) {
+  // Request a signed/download URL from the backend, then fetch it.
+  const urlRes: any = await apiRequest(`${API_BASE}/files/${encodeURIComponent(fileId)}/download`);
+  const downloadUrl = urlRes?.url || `${API_BASE}/download/${encodeURIComponent(fileId)}`;
   const token = getToken();
-  const res = await fetch(`${API_BASE}/download/${encodeURIComponent(fileId)}`, {
+  const res = await fetch(downloadUrl, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Download failed ${res.status}`);
   }
   const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
+  const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
+  a.href = blobUrl;
   const disposition = res.headers.get("content-disposition") || "";
   const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
   a.download = match ? match[1].replace(/['"]/g, "") : fileId;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(blobUrl);
 }
 
 export async function listHistory(limit = 50) {
@@ -248,8 +294,60 @@ export async function fetchMe() {
   return apiRequest(`${API_BASE}/auth/me`);
 }
 
-export function logout() {
+export async function refreshToken() {
+  return apiRequest(`${API_BASE}/auth/refresh`, { method: "POST" });
+}
+
+export async function logout() {
   clearToken();
+  try {
+    await apiRequest(`${API_BASE}/auth/logout`, { method: "POST" });
+  } catch {
+    // Ignore errors during logout
+  }
+}
+
+export async function logoutAll() {
+  clearToken();
+  try {
+    await apiRequest(`${API_BASE}/auth/logout-all`, { method: "POST" });
+  } catch {
+    // Ignore errors during logout
+  }
+}
+
+/* ---- File & folder endpoints ---- */
+
+export async function listFiles(limit = 100, userId?: string) {
+  const url = userId
+    ? `${API_BASE}/files?limit=${limit}&user_id=${encodeURIComponent(userId)}`
+    : `${API_BASE}/files?limit=${limit}`;
+  return apiRequest(url);
+}
+
+export async function getFile(fileId: string) {
+  return apiRequest(`${API_BASE}/files/${encodeURIComponent(fileId)}`);
+}
+
+export async function downloadFileUrl(fileId: string) {
+  return `${API_BASE}/files/${encodeURIComponent(fileId)}/download`;
+}
+
+export async function deleteFile(fileId: string) {
+  return apiRequest(`${API_BASE}/files/${encodeURIComponent(fileId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listFolders() {
+  return apiRequest(`${API_BASE}/folders`);
+}
+
+export async function createFolder(name: string, parentId?: string) {
+  return apiRequest(`${API_BASE}/folders`, {
+    method: "POST",
+    body: JSON.stringify({ name, parent_id: parentId }),
+  });
 }
 
 /* ---- Async job helpers ---- */
