@@ -227,11 +227,140 @@ try:
             progress = int((i + 1) / total * 100)
             self.update_state(state="STARTED", meta={"progress": progress})
         return {"format": fmt, "template": template_name, "total": total, "results": results}
+
+    @celery_app.task(bind=True, name="tasks.image_convert")
+    def image_convert_task(self, file_id: str, target_format: str, quality: int,
+                           user_id: Optional[str] = None) -> str:
+        self.update_state(state="STARTED", meta={"progress": 10})
+        from app.storage import storage as st
+        import secrets
+        from pathlib import Path
+        from app.config import OUTPUT_DIR
+        from app.image_tools import convert_image
+        entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+        if not entry:
+            raise FileNotFoundError(f"Source file {file_id} not found")
+        src = Path(entry["path"])
+        out_id = secrets.token_urlsafe(16)
+        out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{target_format}")
+        res = convert_image(str(src), out_path, target_format, quality=quality)
+        if not res.ok:
+            raise RuntimeError(res.error or "Image conversion failed")
+        with open(res.output_path, "rb") as f:
+            file_data = f.read()
+        _run_async(st.save_output(out_id, file_data, target_format, user_id=user_id,
+                                  original_name=f"{src.stem}.{target_format}"))
+        return out_id
+
+    @celery_app.task(bind=True, name="tasks.image_resize")
+    def image_resize_task(self, file_id: str, width: Optional[int], height: Optional[int],
+                          fit: str, quality: int, user_id: Optional[str] = None) -> str:
+        self.update_state(state="STARTED", meta={"progress": 10})
+        from app.storage import storage as st
+        import secrets
+        from pathlib import Path
+        from app.config import OUTPUT_DIR
+        from app.image_tools import resize_image
+        entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+        if not entry:
+            raise FileNotFoundError(f"Source file {file_id} not found")
+        src = Path(entry["path"])
+        out_id = secrets.token_urlsafe(16)
+        out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{src.suffix.lstrip('.') or 'png'}")
+        res = resize_image(str(src), out_path, width=width, height=height, fit=fit, quality=quality)
+        if not res.ok:
+            raise RuntimeError(res.error or "Image resize failed")
+        with open(res.output_path, "rb") as f:
+            file_data = f.read()
+        _run_async(st.save_output(out_id, file_data, src.suffix.lstrip(".") or "png", user_id=user_id,
+                                  original_name=f"{src.stem}_resized{src.suffix}"))
+        return out_id
+
+    @celery_app.task(bind=True, name="tasks.image_compress")
+    def image_compress_task(self, file_id: str, quality: int,
+                            user_id: Optional[str] = None) -> str:
+        self.update_state(state="STARTED", meta={"progress": 10})
+        from app.storage import storage as st
+        import secrets
+        from pathlib import Path
+        from app.config import OUTPUT_DIR
+        from app.image_tools import compress_image
+        entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+        if not entry:
+            raise FileNotFoundError(f"Source file {file_id} not found")
+        src = Path(entry["path"])
+        out_id = secrets.token_urlsafe(16)
+        out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{src.suffix.lstrip('.') or 'png'}")
+        res = compress_image(str(src), out_path, quality=quality)
+        if not res.ok:
+            raise RuntimeError(res.error or "Image compress failed")
+        with open(res.output_path, "rb") as f:
+            file_data = f.read()
+        _run_async(st.save_output(out_id, file_data, src.suffix.lstrip(".") or "png", user_id=user_id,
+                                  original_name=f"{src.stem}_compressed{src.suffix}"))
+        return out_id
+
+    @celery_app.task(bind=True, name="tasks.image_rotate")
+    def image_rotate_task(self, file_id: str, degrees: int, expand: bool, quality: int,
+                          user_id: Optional[str] = None) -> str:
+        self.update_state(state="STARTED", meta={"progress": 10})
+        from app.storage import storage as st
+        import secrets
+        from pathlib import Path
+        from app.config import OUTPUT_DIR
+        from app.image_tools import rotate_image
+        entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+        if not entry:
+            raise FileNotFoundError(f"Source file {file_id} not found")
+        src = Path(entry["path"])
+        out_id = secrets.token_urlsafe(16)
+        out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{src.suffix.lstrip('.') or 'png'}")
+        res = rotate_image(str(src), out_path, degrees=degrees, expand=expand, quality=quality)
+        if not res.ok:
+            raise RuntimeError(res.error or "Image rotate failed")
+        with open(res.output_path, "rb") as f:
+            file_data = f.read()
+        _run_async(st.save_output(out_id, file_data, src.suffix.lstrip(".") or "png", user_id=user_id,
+                                  original_name=f"{src.stem}_rotated{src.suffix}"))
+        return out_id
+
+    @celery_app.task(bind=True, name="tasks.image_to_pdf")
+    def image_to_pdf_task(self, file_ids: list, page_size: str, quality: int,
+                          user_id: Optional[str] = None) -> str:
+        self.update_state(state="STARTED", meta={"progress": 10})
+        from app.storage import storage as st
+        import secrets
+        from pathlib import Path
+        from app.config import OUTPUT_DIR
+        from app.image_tools import images_to_pdf
+        paths = []
+        names = []
+        for fid in file_ids:
+            entry = _run_async(st.get_file_entry(fid, user_id=user_id))
+            if not entry:
+                raise FileNotFoundError(f"Source file {fid} not found")
+            paths.append(entry["path"])
+            names.append(Path(entry["path"]).stem)
+        out_id = secrets.token_urlsafe(16)
+        out_path = str(Path(OUTPUT_DIR) / f"{out_id}.pdf")
+        res = images_to_pdf(paths, out_path, page_size=page_size, quality=quality)
+        if not res.ok:
+            raise RuntimeError(res.error or "Images to PDF failed")
+        with open(out_path, "rb") as f:
+            file_data = f.read()
+        _run_async(st.save_output(out_id, file_data, "pdf", user_id=user_id,
+                                  original_name=f"images_{'_'.join(names[:3])}.pdf"))
+        return out_id
 except Exception:  # celery not importable / broker down
     convert_task = None
     pdf_tool_task = None
     generate_task = None
     generate_batch_task = None
+    image_convert_task = None
+    image_resize_task = None
+    image_compress_task = None
+    image_rotate_task = None
+    image_to_pdf_task = None
 
 
 # ---- In-process task functions used by the job fallback ----
@@ -304,3 +433,122 @@ def generate_batch(template_name: str, rows: list, fmt: str,
                                           original_name=original_name))
         results.append({"row": i, "output_id": out_id, "name": saved.get("original_name")})
     return {"format": fmt, "template": template_name, "total": total, "results": results}
+
+
+def image_convert(file_id: str, target_format: str, quality: int,
+                  user_id: Optional[str] = None) -> str:
+    from app.storage import storage as st
+    import secrets
+    from pathlib import Path
+    from app.config import OUTPUT_DIR
+    from app.image_tools import convert_image
+    entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+    if not entry:
+        raise FileNotFoundError(f"Source file {file_id} not found")
+    src = Path(entry["path"])
+    out_id = secrets.token_urlsafe(16)
+    out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{target_format}")
+    res = convert_image(str(src), out_path, target_format, quality=quality)
+    if not res.ok:
+        raise RuntimeError(res.error or "Image conversion failed")
+    with open(res.output_path, "rb") as f:
+        file_data = f.read()
+    _run_async(st.save_output(out_id, file_data, target_format, user_id=user_id,
+                              original_name=f"{src.stem}.{target_format}"))
+    return out_id
+
+
+def image_resize(file_id: str, width: Optional[int], height: Optional[int],
+                 fit: str, quality: int, user_id: Optional[str] = None) -> str:
+    from app.storage import storage as st
+    import secrets
+    from pathlib import Path
+    from app.config import OUTPUT_DIR
+    from app.image_tools import resize_image
+    entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+    if not entry:
+        raise FileNotFoundError(f"Source file {file_id} not found")
+    src = Path(entry["path"])
+    out_id = secrets.token_urlsafe(16)
+    out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{src.suffix.lstrip('.') or 'png'}")
+    res = resize_image(str(src), out_path, width=width, height=height, fit=fit, quality=quality)
+    if not res.ok:
+        raise RuntimeError(res.error or "Image resize failed")
+    with open(res.output_path, "rb") as f:
+        file_data = f.read()
+    _run_async(st.save_output(out_id, file_data, src.suffix.lstrip(".") or "png", user_id=user_id,
+                              original_name=f"{src.stem}_resized{src.suffix}"))
+    return out_id
+
+
+def image_compress(file_id: str, quality: int,
+                   user_id: Optional[str] = None) -> str:
+    from app.storage import storage as st
+    import secrets
+    from pathlib import Path
+    from app.config import OUTPUT_DIR
+    from app.image_tools import compress_image
+    entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+    if not entry:
+        raise FileNotFoundError(f"Source file {file_id} not found")
+    src = Path(entry["path"])
+    out_id = secrets.token_urlsafe(16)
+    out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{src.suffix.lstrip('.') or 'png'}")
+    res = compress_image(str(src), out_path, quality=quality)
+    if not res.ok:
+        raise RuntimeError(res.error or "Image compress failed")
+    with open(res.output_path, "rb") as f:
+        file_data = f.read()
+    _run_async(st.save_output(out_id, file_data, src.suffix.lstrip(".") or "png", user_id=user_id,
+                              original_name=f"{src.stem}_compressed{src.suffix}"))
+    return out_id
+
+
+def image_rotate(file_id: str, degrees: int, expand: bool, quality: int,
+                 user_id: Optional[str] = None) -> str:
+    from app.storage import storage as st
+    import secrets
+    from pathlib import Path
+    from app.config import OUTPUT_DIR
+    from app.image_tools import rotate_image
+    entry = _run_async(st.get_file_entry(file_id, user_id=user_id))
+    if not entry:
+        raise FileNotFoundError(f"Source file {file_id} not found")
+    src = Path(entry["path"])
+    out_id = secrets.token_urlsafe(16)
+    out_path = str(Path(OUTPUT_DIR) / f"{out_id}.{src.suffix.lstrip('.') or 'png'}")
+    res = rotate_image(str(src), out_path, degrees=degrees, expand=expand, quality=quality)
+    if not res.ok:
+        raise RuntimeError(res.error or "Image rotate failed")
+    with open(res.output_path, "rb") as f:
+        file_data = f.read()
+    _run_async(st.save_output(out_id, file_data, src.suffix.lstrip(".") or "png", user_id=user_id,
+                              original_name=f"{src.stem}_rotated{src.suffix}"))
+    return out_id
+
+
+def image_to_pdf(file_ids: list, page_size: str, quality: int,
+                 user_id: Optional[str] = None) -> str:
+    from app.storage import storage as st
+    import secrets
+    from pathlib import Path
+    from app.config import OUTPUT_DIR
+    from app.image_tools import images_to_pdf
+    paths = []
+    names = []
+    for fid in file_ids:
+        entry = _run_async(st.get_file_entry(fid, user_id=user_id))
+        if not entry:
+            raise FileNotFoundError(f"Source file {fid} not found")
+        paths.append(entry["path"])
+        names.append(Path(entry["path"]).stem)
+    out_id = secrets.token_urlsafe(16)
+    out_path = str(Path(OUTPUT_DIR) / f"{out_id}.pdf")
+    res = images_to_pdf(paths, out_path, page_size=page_size, quality=quality)
+    if not res.ok:
+        raise RuntimeError(res.error or "Images to PDF failed")
+    with open(out_path, "rb") as f:
+        file_data = f.read()
+    _run_async(st.save_output(out_id, file_data, "pdf", user_id=user_id,
+                              original_name=f"images_{'_'.join(names[:3])}.pdf"))
+    return out_id

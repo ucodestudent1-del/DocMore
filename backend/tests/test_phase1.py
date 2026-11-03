@@ -23,6 +23,7 @@ from app.auth import (
 )
 from app.models import TIER_LIMITS
 from app.services.generation_service import service as gen_service, NATIVE_FORMATS, FIDELITY_NOTES
+from app.image_tools import convert_image, resize_image, compress_image, rotate_image, SAVE_FORMATS, READ_FORMATS
 from fastapi import HTTPException
 
 
@@ -254,3 +255,102 @@ def test_render_blocks_pdf():
     res = render_blocks(blocks, "pdf", "/tmp/test_phase1_output.pdf")
     assert res.ok is True
     assert res.output_path is not None
+
+
+# ---------------------------------------------------------------------------
+# Image processing tests
+# ---------------------------------------------------------------------------
+
+def test_supported_formats():
+    """SAVE_FORMATS and READ_FORMATS are defined."""
+    assert "png" in SAVE_FORMATS
+    assert "jpg" in SAVE_FORMATS
+    assert "webp" in SAVE_FORMATS
+    assert "png" in READ_FORMATS
+    assert "jpg" in READ_FORMATS
+
+
+def test_convert_png_to_jpg():
+    """Convert a PNG image to JPEG."""
+    from PIL import Image as PILImage
+    # Create a small test PNG
+    img = PILImage.new("RGB", (100, 100), color="red")
+    src = "/tmp/test_phase1_source.png"
+    dst = "/tmp/test_phase1_output.jpg"
+    img.save(src, "PNG")
+    res = convert_image(src, dst, "jpg", quality=85)
+    assert res.ok is True
+    assert os.path.exists(dst)
+    # Verify it's a valid JPEG
+    with PILImage.open(dst) as reloaded:
+        assert reloaded.format == "JPEG"
+
+
+def test_convert_png_to_webp():
+    """Convert a PNG image to WEBP."""
+    from PIL import Image as PILImage
+    import os
+    img = PILImage.new("RGB", (50, 50), color="blue")
+    src = "/tmp/test_phase1_source2.png"
+    dst = "/tmp/test_phase1_output.webp"
+    img.save(src, "PNG")
+    res = convert_image(src, dst, "webp", quality=85)
+    assert res.ok is True
+    assert os.path.exists(dst)
+    with PILImage.open(dst) as reloaded:
+        assert reloaded.format == "WEBP"
+
+
+def test_resize_image():
+    """Resize an image to smaller dimensions."""
+    from PIL import Image as PILImage
+    import os
+    img = PILImage.new("RGB", (200, 100), color="green")
+    src = "/tmp/test_phase1_resize_src.png"
+    dst = "/tmp/test_phase1_resize_dst.png"
+    img.save(src, "PNG")
+    res = resize_image(src, dst, width=100, height=None, fit="contain", quality=85)
+    assert res.ok is True
+    assert os.path.exists(dst)
+    with PILImage.open(dst) as reloaded:
+        assert reloaded.width <= 100
+
+
+def test_compress_image():
+    """Compress an image."""
+    from PIL import Image as PILImage
+    import os
+    img = PILImage.new("RGB", (200, 200), color="yellow")
+    src = "/tmp/test_phase1_compress_src.png"
+    dst = "/tmp/test_phase1_compress_dst.jpg"
+    img.save(src, "PNG")
+    res = compress_image(src, dst, quality=50)
+    assert res.ok is True
+    assert os.path.exists(dst)
+
+
+def test_rotate_image():
+    """Rotate an image by 90 degrees."""
+    from PIL import Image as PILImage
+    import os
+    img = PILImage.new("RGB", (100, 200), color="cyan")
+    src = "/tmp/test_phase1_rotate_src.png"
+    dst = "/tmp/test_phase1_rotate_dst.png"
+    img.save(src, "PNG")
+    res = rotate_image(src, dst, degrees=90, expand=True, quality=85)
+    assert res.ok is True
+    assert os.path.exists(dst)
+    with PILImage.open(dst) as reloaded:
+        # After 90 degree rotation with expand, dimensions swap
+        assert reloaded.width == 200 or reloaded.height == 100
+
+
+def test_unsupported_format():
+    """Converting to an unsupported format returns an error."""
+    from PIL import Image as PILImage
+    img = PILImage.new("RGB", (50, 50), color="red")
+    src = "/tmp/test_phase1_bad_src.png"
+    dst = "/tmp/test_phase1_bad_dst.xyz"
+    img.save(src, "PNG")
+    res = convert_image(src, dst, "xyz", quality=85)
+    assert res.ok is False

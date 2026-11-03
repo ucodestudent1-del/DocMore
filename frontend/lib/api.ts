@@ -280,6 +280,63 @@ export async function generateJobStatus(jobId: string) {
   return apiRequest(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
 }
 
+/* ---- Image processing endpoints ---- */
+
+export async function imageConvert(fileId: string, targetFormat: string, quality = 85) {
+  return apiRequest(`${API_BASE}/images/convert`, {
+    method: "POST",
+    body: JSON.stringify({ file_id: fileId, target_format: targetFormat, quality }),
+  });
+}
+
+export async function imageResize(fileId: string, width?: number, height?: number, fit = "cover", quality = 85) {
+  return apiRequest(`${API_BASE}/images/resize`, {
+    method: "POST",
+    body: JSON.stringify({ file_id: fileId, width, height, fit, quality }),
+  });
+}
+
+export async function imageCompress(fileId: string, quality = 60) {
+  return apiRequest(`${API_BASE}/images/compress`, {
+    method: "POST",
+    body: JSON.stringify({ file_id: fileId, quality }),
+  });
+}
+
+export async function imageRotate(fileId: string, degrees: number, expand = true, quality = 85) {
+  return apiRequest(`${API_BASE}/images/rotate`, {
+    method: "POST",
+    body: JSON.stringify({ file_id: fileId, degrees, expand, quality }),
+  });
+}
+
+export async function imagesToPdfFromIds(fileIds: string[], pageSize = "letter", quality = 85) {
+  return apiRequest(`${API_BASE}/images/to-pdf`, {
+    method: "POST",
+    body: JSON.stringify({ file_ids: fileIds, page_size: pageSize, quality }),
+  });
+}
+
+export async function imagesUpload(files: File[]) {
+  const fd = new FormData();
+  for (const f of files) fd.append("files", f);
+  const res = await fetch(`${API_BASE}/images/upload`, {
+    method: "POST",
+    body: fd,
+    headers: authHeaders(),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Image upload failed ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function imageFormats() {
+  return apiRequest(`${API_BASE}/images/formats`);
+}
+
 export async function imagesToPdf(files: File[]) {
   const fd = new FormData();
   for (const f of files) fd.append("files", f);
@@ -417,4 +474,59 @@ export async function runAsyncJob(requestFn: () => Promise<any>) {
     // fall through to defaults below
   }
   return { id: outId, ext: "pdf", name: res.name ?? "result" };
+}
+
+/* ---- Document editor endpoints ---- */
+
+export async function listDocuments(folderId?: string) {
+  const url = folderId
+    ? `${API_BASE}/documents?folder_id=${encodeURIComponent(folderId)}`
+    : `${API_BASE}/documents`;
+  return apiRequest(url);
+}
+
+export async function createDocument(title: string, content: string, folderId?: string) {
+  return apiRequest(`${API_BASE}/documents`, {
+    method: "POST",
+    body: JSON.stringify({ title, content, folder_id: folderId }),
+  });
+}
+
+export async function getDocument(docId: string) {
+  return apiRequest(`${API_BASE}/documents/${encodeURIComponent(docId)}`);
+}
+
+export async function updateDocument(
+  docId: string,
+  title?: string,
+  content?: string,
+  folderId?: string,
+) {
+  return apiRequest(`${API_BASE}/documents/${encodeURIComponent(docId)}`, {
+    method: "PUT",
+    body: JSON.stringify({ title, content, folder_id: folderId }),
+  });
+}
+
+export async function deleteDocument(docId: string) {
+  return apiRequest(`${API_BASE}/documents/${encodeURIComponent(docId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listDocumentVersions(docId: string) {
+  return apiRequest(`${API_BASE}/documents/${encodeURIComponent(docId)}/versions`);
+}
+
+export async function restoreDocumentVersion(docId: string, versionId: string) {
+  return apiRequest(
+    `${API_BASE}/documents/${encodeURIComponent(docId)}/versions/${encodeURIComponent(versionId)}/restore`,
+    { method: "POST" },
+  );
+}
+
+export async function exportDocument(docId: string, format: string) {
+  return apiRequest(`${API_BASE}/documents/${encodeURIComponent(docId)}/export?format=${encodeURIComponent(format)}`, {
+    method: "POST",
+  });
 }
