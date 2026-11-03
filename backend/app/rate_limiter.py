@@ -42,11 +42,16 @@ def _redis_key(username: str) -> str:
 
 
 async def _get_tier_from_db(username: str) -> str:
-    """Look up user tier from the database."""
-    async with async_session() as db:
-        result = await db.execute(select(User).where(User.username == username))
-        user = result.scalar_one_or_none()
-        return user.tier if user else "free"
+    """Look up user tier from the database. Defaults to 'free' on any error."""
+    try:
+        async with async_session() as db:
+            result = await db.execute(select(User).where(User.username == username))
+            user = result.scalar_one_or_none()
+            return user.tier if user else "free"
+    except Exception:
+        # Database may not have the 'role' column yet, or may be unavailable.
+        # Default to free tier so the app keeps working.
+        return "free"
 
 
 async def check_rate_limit(username: str) -> tuple[bool, str]:
