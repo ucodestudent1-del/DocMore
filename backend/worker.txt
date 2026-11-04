@@ -1,4 +1,0 @@
-# Run the Celery worker for background document processing.
-# Use this only when a Redis broker is available; otherwise the API falls back
-# to in-process job execution automatically.
-celery -A app.celery_app worker --loglevel=info --concurrency=2

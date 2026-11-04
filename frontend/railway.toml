@@ -1,2 +1,0 @@
-# Single-service deployment: backend serves built frontend.
-# See root railway.toml for the service definition.
