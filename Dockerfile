@@ -20,7 +20,7 @@ RUN cd frontend && npm ci --no-audit --no-fund --jobs=1 --maxsemi=1
 COPY . .
 
 # Build frontend + backend (dev deps available since NODE_ENV not yet production)
-RUN cd frontend && npm run build --no-audit --no-fund && cd ../backend && ./node_modules/.bin/tsc
+RUN cd frontend && npm run build --no-audit --no-fund && cd ../backend && ./node_modules/.bin/tsc && cp src/db/schema.sql dist/db/schema.sql
 
 # Runtime environment
 ENV NODE_ENV=production
