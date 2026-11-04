@@ -6,7 +6,7 @@ Uses SQLAlchemy with async support for PostgreSQL.
 from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from sqlalchemy import (
-    Integer, String, DateTime, Text, ForeignKey
+    Integer, String, DateTime, Text, ForeignKey, Numeric
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
 
@@ -156,3 +156,36 @@ class Session(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User")
+
+
+class PropertyAnalysis(Base):
+    """Saved rental property financial analysis."""
+    __tablename__ = "property_analyses"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, index=True)
+    user_id: Mapped[str] = mapped_column(String(255), ForeignKey("users.username"), nullable=False, index=True)
+
+    # Input parameters
+    purchase_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    rental_income: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    down_payment: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    loan_term_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    interest_rate: Mapped[float] = mapped_column(Numeric(5, 4), nullable=False)
+    property_tax_annual: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    insurance_annual: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    misc_opex_annual: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+
+    # Calculated metrics
+    monthly_cash_flow: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    annual_cash_flow: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    cap_rate: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
+    cash_on_cash_return: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
+    total_return_roi: Mapped[float] = mapped_column(Numeric(10, 4), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="analyses")
+
+
+User.analyses: Mapped[List["PropertyAnalysis"]] = relationship(back_populates="user", cascade="all, delete-orphan")

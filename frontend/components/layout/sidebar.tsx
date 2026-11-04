@@ -13,6 +13,7 @@ import {
   History,
   Settings,
   Scissors,
+  Calculator,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 const NAV = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Universal Converter", href: "/convert", icon: Upload },
+  { name: "Rental Analyzer", href: "/analyzer", icon: Calculator },
   { name: "PDF Tools", href: "/pdf-tools", icon: FileText },
   { name: "Document Generator", href: "/generate", icon: FileText },
   { name: "Templates", href: "/templates", icon: FileText },

@@ -20,6 +20,7 @@ from app.api.routes import (
     images,
     documents,
     usage,
+    analysis,
 )
 from app.config import FRONTEND_URL
 from app.middleware.security import SecurityHeadersMiddleware, CSRFMiddleware, RateLimitMiddleware
@@ -87,6 +88,7 @@ app.include_router(files.router, prefix="/api")
 app.include_router(images.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(usage.router, prefix="/api")
+app.include_router(analysis.router, prefix="/api")
 
 
 @app.get("/api/health")

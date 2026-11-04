@@ -607,3 +607,25 @@ export async function adminGDPRDeleteUser(username: string) {
     method: "DELETE",
   });
 }
+
+/* ---- Rental property analysis ---- */
+
+export async function runAnalysis(payload: {
+  purchase_price: number;
+  rental_income: number;
+  down_payment: number;
+  loan_term_years: number;
+  interest_rate: number;
+  property_tax_annual: number;
+  insurance_annual: number;
+  misc_opex_annual: number;
+}) {
+  return apiRequest(`${API_BASE}/analyze`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listAnalyses() {
+  return apiRequest(`${API_BASE}/analyses`);
+}
