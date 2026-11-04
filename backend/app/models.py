@@ -61,7 +61,7 @@ class User(Base):
     outputs: Mapped[List["Output"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     jobs: Mapped[List["Job"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[List["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    analyses: Mapped[List["PropertyAnalysis"]] = relationship(cascade="all, delete-orphan")
+    analyses: Mapped[List["PropertyAnalysis"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Upload(Base):
@@ -186,4 +186,4 @@ class PropertyAnalysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    user: Mapped["User"] = relationship("User")
+    user: Mapped["User"] = relationship("User", back_populates="analyses")
