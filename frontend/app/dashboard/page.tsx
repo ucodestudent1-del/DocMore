@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { api, getUserId, setUserId } from "@/lib/api";
+import { api, downloadFile, getUserId, setUserId } from "@/lib/api";
 import { useToast } from "@/components/Toast";
 import { Plus, FileText, LayoutList, Download, Search } from "lucide-react";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
@@ -147,20 +147,22 @@ export default function Dashboard() {
                       </td>
                       <td className="px-4 py-3">
                         <a
-                          href={`/documents/${d.id}`}
+                          href={`/documents?id=${d.id}`}
                           className="text-indigo-600 hover:underline text-sm dark:text-indigo-400"
                         >
                           Open
                         </a>
                         {" | "}
-                        <a
-                          href={`/documents/${d.id}/export/pdf`}
+                        <button
+                          onClick={() => {
+                            downloadFile(`/api/v1/export/${d.id}/pdf`, `${d.title.replace(/\s+/g, "_")}.pdf`).catch((e: any) =>
+                              toast({ title: "Export failed", description: e.message, variant: "destructive" }),
+                            );
+                          }}
                           className="text-indigo-600 hover:underline text-sm dark:text-indigo-400"
-                          target="_blank"
-                          rel="noopener noreferrer"
                         >
                           <Download size={14} strokeWidth={2} className="inline align-[-1px] mr-1" /> PDF
-                        </a>
+                        </button>
                       </td>
                     </tr>
                   ))

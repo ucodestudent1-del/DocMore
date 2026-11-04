@@ -1,17 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { api, downloadFile } from "@/lib/api";
 import { Save, FileText, ArrowLeft, Copy, Download } from "lucide-react";
 import { useToast } from "@/components/Toast";
 
 type Block = { type: string; text: string };
 
-export default function DocumentPage() {
+export default function DocumentPageClient({ initialId }: { initialId?: string }) {
+  const [id, setId] = useState<string | null>(null);
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
   const { toast } = useToast();
 
   const [doc, setDoc] = useState<any>(null);
@@ -23,7 +22,19 @@ export default function DocumentPage() {
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const spId = params.get("id");
+    if (spId && spId !== id) {
+      setId(spId);
+    }
+    if (!id && initialId) {
+      setId(initialId);
+    }
+  }, [id, initialId]);
+
   const loadDoc = useCallback(async () => {
+    if (!id) return;
     try {
       const d = await api(`/api/v1/documents/${id}`);
       setDoc(d);
@@ -41,7 +52,6 @@ export default function DocumentPage() {
     loadDoc();
   }, [loadDoc]);
 
-  // Ctrl+S save
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
@@ -53,7 +63,6 @@ export default function DocumentPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [saveDoc]);
 
-  // Unsaved-changes guard
   useEffect(() => {
     if (!dirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -82,6 +91,7 @@ export default function DocumentPage() {
   }
 
   async function saveDoc() {
+    if (!id) return;
     setSaving(true);
     try {
       await api(`/api/v1/documents/${id}`, {
@@ -99,6 +109,7 @@ export default function DocumentPage() {
     }
   }
 
+  if (!id) return <div className="p-8 dark:text-white">No document selected.</div>;
   if (loading) return <div className="p-8 dark:text-white">Loading...</div>;
   if (error) return <div className="p-8 text-red-600 dark:text-red-400">{error}</div>;
   if (!doc) return null;
