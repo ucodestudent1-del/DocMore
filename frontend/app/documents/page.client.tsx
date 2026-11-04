@@ -144,26 +144,29 @@ export default function DocumentPageClient({ initialId }: { initialId?: string }
             {saving ? "Saving..." : <><Save size={16} strokeWidth={2} className="mr-2" /> Save (⌘S)</>}
           </button>
           {saved && <span className="text-xs text-green-600 dark:text-green-400">Saved</span>}
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-              setSaved(true);
-              setTimeout(() => setSaved(false), 1500);
-              toast({ title: "Link copied" });
-            }}
-            className="text-gray-400 hover:text-indigo-600 p-1 dark:text-gray-500 dark:hover:text-indigo-400"
-            title="Copy link"
-          >
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 1500);
+                toast({ title: "Link copied" });
+              }}
+              className="text-gray-400 hover:text-indigo-600 p-1 dark:text-gray-500 dark:hover:text-indigo-400"
+              title="Copy link"
+              aria-label="Copy link"
+            >
             <Copy size={18} strokeWidth={2} />
           </button>
         </div>
       </div>
 
       <input
+        id="document-title"
         value={title}
         onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
         className="w-full text-3xl font-bold border-b border-gray-300 pb-2 focus:border-indigo-500 focus:outline-none mb-6 bg-transparent dark:border-gray-600 dark:text-white"
         placeholder="Untitled document"
+        aria-label="Document title"
       />
 
       <div className="space-y-4 min-h-[600px]">
@@ -172,17 +175,20 @@ export default function DocumentPageClient({ initialId }: { initialId?: string }
             <button
               onClick={() => removeBlock(i)}
               className="p-1 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+              aria-label="Remove block"
             >
                             ×
             </button>
             <div className="flex-1 border-b border-gray-200 pb-1 dark:border-gray-700">
               <textarea
+                id={`block-${i}`}
                 value={b.text}
                 onChange={(e) => updateBlock(i, e.target.value)}
                 className="w-full resize-none text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 p-2 bg-transparent dark:text-white"
                 rows={3}
                 placeholder={b.type === "heading" ? "Heading…" : "Type here…"}
                 style={{ fontSize: b.type === "heading" ? "1.5rem" : "1rem", fontWeight: b.type === "heading" ? "700" : "400" }}
+                aria-label={b.type === "heading" ? "Heading" : "Paragraph"}
               />
             </div>
           </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api, downloadFile } from "@/lib/api";
 import { useToast } from "@/components/Toast";
-import { Plus, FileText, LayoutList, Download, Search } from "lucide-react";
+import { Plus, FileText, LayoutList, Download, Search, Clock, Check, ChevronRight } from "lucide-react";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
 
 export default function Dashboard() {
@@ -20,6 +20,7 @@ export default function Dashboard() {
   if (!checkedAuth) return null;
   const [docs, setDocs] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [conversions, setConversions] = useState<any[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -46,9 +47,14 @@ export default function Dashboard() {
 
   async function load() {
     try {
-      const [d, t] = await Promise.all([api("/api/v1/documents"), api("/api/v1/templates")]);
+      const [d, t, c] = await Promise.all([
+        api("/api/v1/documents"),
+        api("/api/v1/templates"),
+        api("/api/v1/conversions").catch(() => []),
+      ]);
       setDocs(d || []);
       setTemplates(t || []);
+      setConversions(c || []);
     } catch (e: any) {
       toast({ title: "Failed to load", description: e.message, variant: "destructive" });
     } finally {
@@ -88,15 +94,43 @@ export default function Dashboard() {
       </div>
 
       <section className="mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">
+                Storage usage
+              </p>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                1.2 GB / 5 GB
+              </p>
+            </div>
+            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+              24% used
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="bg-indigo-600 h-2 rounded-full" style={{ width: "24%" }}></div>
+          </div>
+          <div className="mt-2 flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>Documents: {docs.length}</span>
+            <span>Templates: {templates.length}</span>
+            <span>Recent conversions: {conversions.length}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-8">
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 dark:text-white">
           <Plus size={18} strokeWidth={2} /> New Document
         </h2>
         <div className="flex gap-3 max-w-md">
           <input
+            id="new-document-title"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="Document title"
             className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            aria-label="Document title"
           />
           <button
             onClick={createDoc}
@@ -116,10 +150,12 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mb-3">
             <Search size={16} strokeWidth={2} className="text-gray-400" />
             <input
+              id="search-documents"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search documents..."
               className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              aria-label="Search documents"
             />
           </div>
           <div className="border border-gray-200 rounded-lg overflow-hidden dark:border-gray-800 dark:bg-gray-800">
@@ -228,6 +264,81 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      {docs.length === 0 && (
+        <section className="mt-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
+            <Clock size={18} strokeWidth={2} /> Getting started
+          </h2>
+          <ol className="space-y-3">
+            {[
+              { label: "Create your first document", href: "#" },
+              { label: "Generate from AI or a template", href: "#" },
+              { label: "Export to PDF, DOCX, HTML, or Markdown", href: "#" },
+            ].map((step, i) => (
+              <li key={step.label} className="flex items-center gap-3">
+                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center shrink-0">
+                  {i + 1}
+                </span>
+                <a
+                  href={step.href === "#" ? "/convert" : step.href}
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  {step.label}
+                </a>
+                <ChevronRight size={14} strokeWidth={2} className="text-gray-400 shrink-0" />
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {conversions.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 dark:text-white">
+            <Download size={18} strokeWidth={2} /> Recent conversions
+          </h2>
+          <div className="border border-gray-200 rounded-lg overflow-hidden dark:border-gray-800 dark:bg-gray-800">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                  <th className="px-4 py-3 font-medium text-gray-600 dark:text-gray-300">File</th>
+                  <th className="px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Target</th>
+                  <th className="px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Status</th>
+                  <th className="px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {conversions.map((c) => (
+                  <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-4 py-3 dark:text-white">{c.sourceFilename || c.fileName}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{c.targetFormat}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs dark:bg-green-900 dark:text-green-300">
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {c.downloadUrl ? (
+                        <button
+                          onClick={() => downloadFile(c.downloadUrl, c.outputFilename || "download").catch((e: any) =>
+                            toast({ title: "Download failed", description: e.message, variant: "destructive" })
+                          )}
+                          className="text-indigo-600 hover:underline text-sm dark:text-indigo-400"
+                        >
+                          Download
+                        </button>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

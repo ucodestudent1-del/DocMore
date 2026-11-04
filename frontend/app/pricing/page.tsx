@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { api, STRIPE_PUBLISHABLE_KEY } from "@/lib/api";
 import { useToast } from "@/components/Toast";
+import Navbar from "@/components/Navbar";
 import { CreditCard, Crown, DollarSign, Layers, ShieldCheck, Zap } from "lucide-react";
 
 const FEATURE_CHECK = <ShieldCheck size={16} strokeWidth={2} />;
@@ -46,24 +47,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
-      <nav className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-xl tracking-tight text-indigo-600 dark:text-indigo-400">EveryDoc</span>
-            </div>
-            <div className="hidden md:flex items-center gap-6">
-              <a href="/dashboard" className="text-gray-600 hover:text-indigo-600 dark:text-gray-300 dark:hover:text-indigo-400">
-                Dashboard
-              </a>
-              <a href="/convert" className="text-gray-600 hover:text-indigo-600 dark:text-gray-300 dark:hover:text-indigo-400">
-                Convert
-              </a>
-            </div>
-            <a href="/" className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Back to home</a>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="max-w-7xl mx-auto py-12 px-4">
         <div className="text-center mb-12">

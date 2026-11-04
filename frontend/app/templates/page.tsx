@@ -82,10 +82,12 @@ export default function Templates() {
 
       <div className="mb-6 flex gap-3 max-w-md">
         <input
+          id="template-name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Template name"
           className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          aria-label="Template name"
         />
         <button
           onClick={createTemplate}

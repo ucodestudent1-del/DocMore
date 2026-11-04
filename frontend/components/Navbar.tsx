@@ -41,12 +41,12 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800 no-print">
+    <nav className="sticky top-0 z-40 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800 no-print" aria-label="Main navigation">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center gap-2">
             <Link
-              href="/dashboard"
+              href={user ? "/dashboard" : "/"}
               className="flex items-center gap-2"
             >
               <span className="font-bold text-xl tracking-tight text-indigo-600 dark:text-indigo-400">EveryDoc</span>
@@ -88,14 +88,14 @@ export default function Navbar() {
                 <button
                   onClick={cycleTheme}
                   className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                  title="Toggle theme"
+                  aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
                 >
                   <Icon size={18} strokeWidth={2} />
                 </button>
                 <button
                   onClick={() => setMobileOpen(!mobileOpen)}
                   className="md:hidden p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                  aria-label="Open menu"
+                  aria-label={mobileOpen ? "Close menu" : "Open menu"}
                 >
                   {mobileOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2.5} />}
                 </button>
@@ -131,14 +131,14 @@ export default function Navbar() {
                 <button
                   onClick={cycleTheme}
                   className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                  title="Toggle theme"
+                  aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
                 >
                   <Icon size={18} strokeWidth={2} />
                 </button>
                 <button
                   onClick={() => setMobileOpen(!mobileOpen)}
                   className="md:hidden p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                  aria-label="Open menu"
+                  aria-label={mobileOpen ? "Close menu" : "Open menu"}
                 >
                   {mobileOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2.5} />}
                 </button>
