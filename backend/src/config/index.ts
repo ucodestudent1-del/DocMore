@@ -9,6 +9,9 @@ const EnvSchema = z.object({
   STORAGE_PATH: z.string().default("/app/storage"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   SESSION_SECRET: z.string().default("dev-secret-change-me"),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

@@ -11,7 +11,9 @@ import templatesRouter from "./routes/templates";
 import convertRouter from "./routes/convert";
 import exportRouter from "./routes/export";
 import authRouter from "./routes/auth";
+import billingRouter from "./routes/billing";
 import { requireUser } from "./middleware/auth";
+import { requireTier } from "./middleware/billing";
 
 export function createApp() {
   const app = express();
@@ -37,6 +39,7 @@ export function createApp() {
   });
   app.use("/api/v1/health", healthRouter);
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/billing", billingRouter);
   app.use("/api/v1/documents", requireUser, documentsRouter);
   app.use("/api/v1/templates", requireUser, templatesRouter);
   app.use("/api/v1/convert", requireUser, convertRouter);

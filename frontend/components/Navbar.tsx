@@ -112,6 +112,9 @@ export default function Navbar() {
               <Link href="/templates" className="text-gray-600 hover:text-indigo-600 font-medium dark:text-gray-300 dark:hover:text-indigo-400">
                 Templates
               </Link>
+              <Link href="/pricing" className="text-gray-600 hover:text-indigo-600 font-medium dark:text-gray-300 dark:hover:text-indigo-400">
+                Pricing
+              </Link>
               <div className="flex items-center gap-2">
                 <Link
                   href="/login"

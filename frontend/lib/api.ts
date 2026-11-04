@@ -1,4 +1,5 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+export const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
 
 function headers(extra: Record<string, string> = {}) {
   const h: Record<string, string> = { "Content-Type": "application/json", ...extra };
