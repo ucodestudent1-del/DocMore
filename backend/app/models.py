@@ -50,17 +50,18 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)  # user, admin
     is_verified: Mapped[bool] = mapped_column(default=False, nullable=False)
     email_verification_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
-    email_verification_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    email_verification_expires: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     password_reset_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
-    password_reset_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    password_reset_expires: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     uploads: Mapped[List["Upload"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     outputs: Mapped[List["Output"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     jobs: Mapped[List["Job"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[List["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    analyses: Mapped[List["PropertyAnalysis"]] = relationship(cascade="all, delete-orphan")
 
 
 class Upload(Base):
@@ -76,7 +77,7 @@ class Upload(Base):
     ext: Mapped[str] = mapped_column(String(20), nullable=False)
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     kind: Mapped[str] = mapped_column(String(50), default="upload", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="uploads")
@@ -95,7 +96,7 @@ class Output(Base):
     ext: Mapped[str] = mapped_column(String(20), nullable=False)
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     kind: Mapped[str] = mapped_column(String(50), default="output", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="outputs")
@@ -112,8 +113,8 @@ class Job(Base):
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped[Optional["User"]] = relationship("User", back_populates="jobs")
@@ -131,11 +132,11 @@ class Subscription(Base):
     status: Mapped[str] = mapped_column(String(50), default="incomplete", nullable=False)  # incomplete, active, past_due, canceled
     tier: Mapped[str] = mapped_column(String(50), default="free", nullable=False)
     interval: Mapped[str] = mapped_column(String(20), default="monthly", nullable=False)
-    current_period_start: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    current_period_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    current_period_start: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_period_end: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_at_period_end: Mapped[bool] = mapped_column(default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User")
@@ -150,9 +151,9 @@ class Session(Base):
     refresh_token: Mapped[str] = mapped_column(String(512), unique=True, index=True, nullable=False)
     user_agent: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User")
@@ -182,10 +183,7 @@ class PropertyAnalysis(Base):
     cash_on_cash_return: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
     total_return_roi: Mapped[float] = mapped_column(Numeric(10, 4), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="analyses")
-
-
-User.analyses: Mapped[List["PropertyAnalysis"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    user: Mapped["User"] = relationship("User")
