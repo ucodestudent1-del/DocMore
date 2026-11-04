@@ -3,5 +3,24 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-white transition-colors duration-300;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  nav,
+  button,
+  a,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    display: block;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
 }
