@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api, downloadFile } from "@/lib/api";
+import { api, API_BASE, downloadFile } from "@/lib/api";
 import { Upload, RefreshCw, Download } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { Skeleton } from "@/components/Skeleton";
@@ -52,7 +52,7 @@ export default function Convert() {
     form.append("targetFormat", targetFormat);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/v1/convert`, {
+      const res = await fetch(`${API_BASE}/api/v1/convert`, {
         method: "POST",
         headers: { "X-User-Id": localStorage.getItem("ed_user_id") || "" },
         body: form,

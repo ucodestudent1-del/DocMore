@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import helmet from "helmet";
 import cors from "cors";
 import { config } from "./config";
@@ -27,6 +28,14 @@ export function createApp() {
   app.use("/api/v1/templates", templatesRouter);
   app.use("/api/v1/convert", convertRouter);
   app.use("/api/v1/export", exportRouter);
+
+  if (config.NODE_ENV === "production") {
+    const frontendOut = path.join(__dirname, "../../frontend/out");
+    app.use(express.static(frontendOut));
+    app.get(/^(?!\/api).*$/, (_req, res) => {
+      res.sendFile(path.join(frontendOut, "index.html"));
+    });
+  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found", status: 404 });

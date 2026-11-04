@@ -1,4 +1,4 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 function headers(extra: Record<string, string> = {}) {
   const h: Record<string, string> = { "Content-Type": "application/json", ...extra };

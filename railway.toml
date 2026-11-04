@@ -1,0 +1,21 @@
+[build]
+  builder = "docker"
+
+[deploy]
+  startCommand = "node dist/server.js"
+  healthcheckPath = "/health"
+  healthcheckTimeout = 300
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+  STORAGE_PATH = "/app/storage"
+
+[[services.postgresql]]
+  name = "everydoc-db"
+  plan = "developer"
+
+[[volumes]]
+  name = "everydoc-storage"
+  mountPath = "/app/storage"
+  size = "10"
