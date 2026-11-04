@@ -2,20 +2,25 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install all deps (dev needed for builds)
+ENV NODE_ENV=production
+ENV NODE_OPTIONS=--max-old-space-size=2048
+
+# Install backend deps
 COPY backend/package.json ./backend/package.json
+RUN cd backend && npm install --no-audit --no-fund
+
+# Install frontend deps
 COPY frontend/package.json ./frontend/package.json
-RUN cd backend && npm install && cd ../frontend && npm install
+RUN cd frontend && npm install --no-audit --no-fund
 
 # Copy source
 COPY . .
 
 # Build frontend + backend
-RUN cd frontend && npm run build && cd ../backend && npm run build
+RUN cd frontend && npm run build --no-audit --no-fund && cd ../backend && npm run build
 
 WORKDIR /app/backend
 
-ENV NODE_ENV=production
 ENV PORT=3001
 ENV STORAGE_PATH=/app/storage
 
