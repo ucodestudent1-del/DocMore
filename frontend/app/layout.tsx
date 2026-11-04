@@ -1,6 +1,6 @@
-import Navbar from "@/components/Navbar";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import { ToastProvider } from "@/components/Toast";
+import Navbar from "../components/Navbar";
+import { ThemeProvider } from "../components/ThemeProvider";
+import { ToastProvider } from "../components/Toast";
 
 export const metadata = {
   title: "EveryDoc",

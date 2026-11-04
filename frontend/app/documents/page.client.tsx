@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { api, downloadFile } from "@/lib/api";
+import { api, downloadFile } from "../../lib/api";
 import { Save, FileText, ArrowLeft, Copy, Download } from "lucide-react";
-import { useToast } from "@/components/Toast";
+import { useToast } from "../../components/Toast";
 
 type Block = { type: string; text: string };
 

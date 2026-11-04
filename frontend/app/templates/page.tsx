@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { api } from "../../lib/api";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
-import { useToast } from "@/components/Toast";
-import { Skeleton } from "@/components/Skeleton";
+import { useToast } from "../../components/Toast";
+import { Skeleton } from "../../components/Skeleton";
 
 export default function Templates() {
   const [templates, setTemplates] = useState<any[]>([]);

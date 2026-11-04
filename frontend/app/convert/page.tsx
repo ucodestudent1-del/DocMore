@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { api, API_BASE, downloadFile } from "@/lib/api";
+import { api, API_BASE, downloadFile } from "../../lib/api";
 import { Upload, RefreshCw, Download } from "lucide-react";
-import { useToast } from "@/components/Toast";
-import { Skeleton } from "@/components/Skeleton";
+import { useToast } from "../../components/Toast";
+import { Skeleton } from "../../components/Skeleton";
 
 type Format = "pdf" | "docx" | "html" | "md";
 

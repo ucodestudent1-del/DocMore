@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, X, Sun, Moon, Monitor, LayoutDashboard } from "lucide-react";
-import { setUserId } from "@/lib/api";
-import { useTheme } from "@/components/ThemeProvider";
+import { setUserId } from "../lib/api";
+import { useTheme } from "./ThemeProvider";
 
 export default function Navbar() {
   const [userId, setUserIdState] = useState("");

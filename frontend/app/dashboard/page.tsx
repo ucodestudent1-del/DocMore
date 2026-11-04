@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { api, downloadFile, getUserId, setUserId } from "@/lib/api";
-import { useToast } from "@/components/Toast";
+import { api, downloadFile, getUserId, setUserId } from "../../lib/api";
+import { useToast } from "../../components/Toast";
 import { Plus, FileText, LayoutList, Download, Search } from "lucide-react";
-import { Skeleton, SkeletonText } from "@/components/Skeleton";
+import { Skeleton, SkeletonText } from "../../components/Skeleton";
 export default function Dashboard() {
   const [docs, setDocs] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
