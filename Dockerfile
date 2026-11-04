@@ -3,9 +3,10 @@ FROM node:20-alpine
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS=--max-old-space-size=1536
 
-# Install system deps for native module compilation (esbuild, etc.)
+# Install system deps for native module compilation (esbuild, SWC, etc.)
 RUN apk add --no-cache python3 make g++
 
 # Install backend deps
