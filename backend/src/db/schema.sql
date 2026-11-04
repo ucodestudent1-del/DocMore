@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS conversion_jobs (
   output_path TEXT,
   error TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  completed_at TIMESTAMPTZ TIMESTAMPTZ
+  completed_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_documents_workspace ON documents(workspace_id);
