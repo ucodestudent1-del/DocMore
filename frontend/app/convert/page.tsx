@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { api, downloadFile } from "@/lib/api";
 import { Upload, RefreshCw, Download } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { Skeleton } from "@/components/Skeleton";
@@ -149,14 +149,16 @@ export default function Convert() {
               <span className="dark:text-white">{EXT_LABEL[job.targetFormat as keyof typeof EXT_LABEL]}</span>
             </div>
             {job.outputFilename && (
-              <a
-                href={job.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  downloadFile(job.downloadUrl, job.outputFilename).catch((e: any) =>
+                    toast({ title: "Download failed", description: e.message, variant: "destructive" }),
+                  );
+                }}
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition"
               >
                 <Download size={16} strokeWidth={2} /> Download {job.outputFilename}
-              </a>
+              </button>
             )}
           </div>
         </section>

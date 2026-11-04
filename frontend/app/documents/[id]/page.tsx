@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { api } from "@/lib/api";
-import { Save, FileText, ArrowLeft, Copy } from "lucide-react";
+import { api, downloadFile } from "@/lib/api";
+import { Save, FileText, ArrowLeft, Copy, Download } from "lucide-react";
 import { useToast } from "@/components/Toast";
 
 type Block = { type: string; text: string };
@@ -185,15 +185,18 @@ export default function DocumentPage() {
 
       <div className="mt-8 border-t border-gray-200 pt-6 flex gap-4 no-print dark:border-gray-700">
         {["pdf", "docx", "html", "md"].map((fmt) => (
-          <a
+          <button
             key={fmt}
-            href={`/api/v1/export/${id}/${fmt}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={() => {
+              downloadFile(`/api/v1/export/${id}/${fmt}`, `${title.replace(/\s+/g, "_")}.${fmt}`).catch((e: any) =>
+                toast({ title: "Export failed", description: e.message, variant: "destructive" }),
+              );
+            }}
             className="px-5 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-indigo-400 transition dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           >
+            <Download size={16} strokeWidth={2} className="mr-1 inline align-[-1px]" />
             Export {fmt.toUpperCase()}
-          </a>
+          </button>
         ))}
       </div>
     </div>

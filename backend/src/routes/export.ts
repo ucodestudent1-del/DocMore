@@ -5,8 +5,9 @@ import { requireUser } from "../middleware/auth";
 import { readFile } from "../services/filesystem";
 import { getMimeForFormat } from "../services/conversion";
 import { PDFDocument } from "pdf-lib";
-import { marked } from "marked";
-import TurndownService from "turndown";
+
+const marked: any = require("marked");
+const TurndownService: any = require("turndown");
 
 const router = Router();
 
@@ -39,18 +40,16 @@ router.get("/:docId/:format", requireUser, asyncHandler(async (req: any, res: an
   switch (format) {
     case "pdf": {
       const pdfDoc = await PDFDocument.create();
-      const page = pdfDoc.addPage([595, 842]);
+      let page = pdfDoc.addPage([595, 842]);
       page.drawText(title, { x: 50, y: 800, size: 18 });
       let y = 760;
       for (const line of plainText.split("\n")) {
         if (y < 50) {
-          const p2 = pdfDoc.addPage([595, 842]);
-          p2.drawText(line, { x: 50, y: 800, size: 12 });
+          page = pdfDoc.addPage([595, 842]);
           y = 760;
-        } else {
-          page.drawText(line, { x: 50, y, size: 12 });
-          y -= 20;
         }
+        page.drawText(line, { x: 50, y, size: 12 });
+        y -= 20;
       }
       outBuf = Buffer.from(await pdfDoc.save());
       mime = "application/pdf";

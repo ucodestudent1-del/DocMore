@@ -28,3 +28,24 @@ export function getUserId() {
   if (typeof localStorage !== "undefined") return localStorage.getItem("ed_user_id");
   return null;
 }
+
+export async function downloadFile(path: string, filename?: string) {
+  const userId = typeof localStorage !== "undefined" ? localStorage.getItem("ed_user_id") : null;
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: userId ? { "X-User-Id": userId } : {},
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Download failed ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "download";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+

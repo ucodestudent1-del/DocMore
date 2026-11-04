@@ -1,10 +1,11 @@
 import { PDFDocument } from "pdf-lib";
-import * as pdfParse from "pdf-parse";
-import mammoth from "mammoth";
-import { marked } from "marked";
-import TurndownService from "turndown";
 import { saveFile, readFile } from "./filesystem";
 import { join } from "path";
+
+const pdfParse: any = require("pdf-parse");
+const mammoth: any = require("mammoth");
+const marked: any = require("marked");
+const TurndownService: any = require("turndown");
 
 export type SourceFormat = "pdf" | "docx" | "html" | "md";
 export type TargetFormat = "pdf" | "docx" | "html" | "md";
@@ -20,7 +21,7 @@ function extOf(fmt: TargetFormat): string {
 }
 
 async function extractTextFromPdf(buf: Buffer): Promise<string> {
-  const data = await pdfParse.default(buf);
+  const data = await pdfParse(buf);
   return data.text || "";
 }
 
@@ -40,20 +41,16 @@ async function mdToHtml(md: string): Promise<string> {
 
 async function textToPdf(text: string): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595, 842]);
+  let page = pdfDoc.addPage([595, 842]);
   const lines = text.split("\n");
   let y = 800;
   for (const line of lines) {
     if (y < 50) {
-      const p2 = await PDFDocument.create();
-      const p2page = p2.addPage([595, 842]);
-      p2page.drawText(line, { x: 50, y: 800, size: 12 });
-      const part = await p2.save();
-      return Buffer.from(part);
-    } else {
-      page.drawText(line, { x: 50, y, size: 12 });
-      y -= 20;
+      page = pdfDoc.addPage([595, 842]);
+      y = 800;
     }
+    page.drawText(line, { x: 50, y, size: 12 });
+    y -= 20;
   }
   const saved = await pdfDoc.save();
   return Buffer.from(saved);

@@ -29,4 +29,4 @@ export function listFiles(dir: string = ""): string[] {
   return readdirSync(p);
 }
 
-export { join };
+export { join, storagePath };

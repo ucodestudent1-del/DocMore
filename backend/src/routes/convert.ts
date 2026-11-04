@@ -1,10 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
+import { copyFileSync, unlinkSync } from "fs";
 import { query } from "../db/pool";
 import { asyncHandler } from "../middleware/error";
 import { requireUser } from "../middleware/auth";
 import { convertFile, isSupported, getMimeForFormat } from "../services/conversion";
-import { saveFile } from "../services/filesystem";
+import { storagePath, readFile } from "../services/filesystem";
 import { z } from "zod";
 
 const router = Router();
@@ -21,7 +22,6 @@ router.post("/", requireUser, upload.single("file"), asyncHandler(async (req: an
   const { targetFormat } = parsed.data;
   const userId = req.user.id;
 
-  const sourceFilename = req.file.filename;
   const originalName = req.file.originalname;
   const sourceExt = originalName.split(".").pop()?.toLowerCase() ?? "";
 
@@ -32,8 +32,14 @@ router.post("/", requireUser, upload.single("file"), asyncHandler(async (req: an
     case "html": sourceFormat = "html"; break;
     case "md": case "markdown": sourceFormat = "md"; break;
     default:
+      unlinkSync(req.file.path);
       return res.status(400).json({ error: `Unsupported source format: .${sourceExt}`, status: 400 });
   }
+
+  const sourceFilename = req.file.filename;
+  // Multer writes to /tmp; copy into persistent storage so convertFile can read it
+  copyFileSync(req.file.path, storagePath(sourceFilename));
+  unlinkSync(req.file.path);
 
   const { rows } = await query(
     `INSERT INTO conversion_jobs (user_id, source_filename, source_path, target_format, status)
@@ -102,7 +108,7 @@ router.get("/:jobId/download", requireUser, asyncHandler(async (req: any, res: a
   );
   if (rows.length === 0) return res.status(404).json({ error: "Job not found or not completed", status: 404 });
   const job = rows[0];
-  const buf = require("../services/filesystem").readFile(job.output_path);
+  const buf = readFile(job.output_path);
   res.set("Content-Disposition", `attachment; filename="${job.output_path}"`);
   res.set("Content-Type", getMimeForFormat(job.target_format));
   res.send(buf);
