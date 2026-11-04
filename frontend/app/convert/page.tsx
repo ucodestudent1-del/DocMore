@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { api, API_BASE, downloadFile } from "../../lib/api";
 import { Upload, RefreshCw, Download } from "lucide-react";
 import { useToast } from "../../components/Toast";
@@ -17,6 +18,17 @@ const EXT_LABEL: Record<Format, string> = {
 };
 
 export default function Convert() {
+  const router = useRouter();
+  const [checkedAuth, setCheckedAuth] = useState(false);
+
+  useEffect(() => {
+    api("/api/v1/auth/me")
+      .catch(() => router.push("/login?next=/convert"))
+      .finally(() => setCheckedAuth(true));
+  }, [router]);
+
+  if (!checkedAuth) return null;
+
   const [file, setFile] = useState<File | null>(null);
   const [targetFormat, setTargetFormat] = useState<Format>("pdf");
   const [job, setJob] = useState<any>(null);

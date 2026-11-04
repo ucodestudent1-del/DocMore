@@ -1,11 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { api, downloadFile, getUserId, setUserId } from "../../lib/api";
-import { useToast } from "../../components/Toast";
+import { useRouter } from "next/navigation";
+import { api, downloadFile } from "@/lib/api";
+import { useToast } from "@/components/Toast";
 import { Plus, FileText, LayoutList, Download, Search } from "lucide-react";
-import { Skeleton, SkeletonText } from "../../components/Skeleton";
+import { Skeleton, SkeletonText } from "@/components/Skeleton";
+
 export default function Dashboard() {
+  const router = useRouter();
+  const [checkedAuth, setCheckedAuth] = useState(false);
+
+  useEffect(() => {
+    api("/api/v1/auth/me")
+      .catch(() => router.push("/login?next=/dashboard"))
+      .finally(() => setCheckedAuth(true));
+  }, [router]);
+
+  if (!checkedAuth) return null;
   const [docs, setDocs] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [newTitle, setNewTitle] = useState("");
@@ -70,7 +82,7 @@ export default function Dashboard() {
         </div>
         <div className="text-right">
           <div className="text-xs text-gray-500 mb-1 dark:text-gray-400">
-            User: {getUserId() || "not set"}
+            Authenticated
           </div>
         </div>
       </div>

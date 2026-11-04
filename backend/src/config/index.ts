@@ -8,6 +8,7 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid postgres URL"),
   STORAGE_PATH: z.string().default("/app/storage"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  SESSION_SECRET: z.string().default("dev-secret-change-me"),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

@@ -1,13 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "../../lib/api";
+import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
-import { useToast } from "../../components/Toast";
-import { Skeleton } from "../../components/Skeleton";
+import { useToast } from "@/components/Toast";
+import { Skeleton } from "@/components/Skeleton";
 
 export default function Templates() {
+  const router = useRouter();
+  const [checkedAuth, setCheckedAuth] = useState(false);
+
+  useEffect(() => {
+    api("/api/v1/auth/me")
+      .catch(() => router.push("/login?next=/templates"))
+      .finally(() => setCheckedAuth(true));
+  }, [router]);
+
+  if (!checkedAuth) return null;
   const [templates, setTemplates] = useState<any[]>([]);
   const [newName, setNewName] = useState("");
   const [loading, setLoading] = useState(true);

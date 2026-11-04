@@ -2,16 +2,25 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { api, downloadFile } from "../../lib/api";
+import { api, downloadFile } from "@/lib/api";
 import { Save, FileText, ArrowLeft, Copy, Download } from "lucide-react";
-import { useToast } from "../../components/Toast";
+import { useToast } from "@/components/Toast";
 
 type Block = { type: string; text: string };
 
 export default function DocumentPageClient({ initialId }: { initialId?: string }) {
-  const [id, setId] = useState<string | null>(null);
   const router = useRouter();
+  const [id, setId] = useState<string | null>(null);
+  const [checkedAuth, setCheckedAuth] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    api("/api/v1/auth/me")
+      .catch(() => router.push(`/login?next=/documents?id=${initialId || ""}`))
+      .finally(() => setCheckedAuth(true));
+  }, [router, initialId]);
+
+  if (!checkedAuth) return null;
 
   const [doc, setDoc] = useState<any>(null);
   const [title, setTitle] = useState("");
