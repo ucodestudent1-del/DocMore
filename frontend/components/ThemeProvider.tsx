@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -8,6 +8,8 @@ interface ThemeContextType {
   theme: Theme;
   setTheme: (next: Theme) => void;
 }
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -37,13 +39,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(stored ?? "light");
   }, [setTheme]);
 
-  if (!mounted) return null;
-  return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
-
-import { createContext, useContext } from "react";
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
