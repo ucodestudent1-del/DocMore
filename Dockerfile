@@ -2,22 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Backend dependencies
+# Install all deps (dev needed for builds)
 COPY backend/package.json ./backend/package.json
-RUN cd backend && npm install
-
-# Frontend dependencies
 COPY frontend/package.json ./frontend/package.json
-RUN cd frontend && npm install
+RUN cd backend && npm install && cd ../frontend && npm install
 
 # Copy source
 COPY . .
 
-# Build frontend to static HTML
-RUN cd frontend && npm run build
-
-# Build backend
-RUN cd backend && npm run build
+# Build frontend + backend
+RUN cd frontend && npm run build && cd ../backend && npm run build
 
 WORKDIR /app/backend
 
