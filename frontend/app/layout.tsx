@@ -6,8 +6,8 @@ import { ClientLayout } from "@/components/layout/client-layout";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Universal Document Studio",
-  description: "Universal document converter and generator",
+  title: "Rental Property Analyzer",
+  description: "Analyze rental property deals — cash flow, cap rate, cash-on-cash return, and ROI",
   metadataBase: new URL("https://docstudio.app"),
   icons: {
     icon: "/icon-192.png",
@@ -29,7 +29,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="DocStudio" />
+        <meta name="apple-mobile-web-app-title" content="RentalAnalyzer" />
         <meta name="theme-color" content="#0f172a" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>

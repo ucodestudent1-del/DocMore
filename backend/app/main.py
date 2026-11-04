@@ -4,22 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.types import Scope
 from app.api.routes import (
-    upload,
-    convert,
-    pdf,
-    generate,
-    history,
-    download,
-    formats,
-    jobs,
     auth,
-    compare,
-    payments,
-    admin,
-    files,
-    images,
-    documents,
-    usage,
     analysis,
 )
 from app.config import FRONTEND_URL
@@ -29,7 +14,7 @@ from app.prisma_client import connect_db, disconnect_db
 import os
 from pathlib import Path
 
-app = FastAPI(title="Universal Document Studio", version="1.0.0")
+app = FastAPI(title="Rental Property Analyzer", version="1.0.0")
 
 
 @app.on_event("startup")
@@ -59,6 +44,7 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"error": True, "message": "Internal server error", "status_code": 500},
     )
 
+
 # Security middleware (order matters - outer middleware wraps inner)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFMiddleware)
@@ -72,22 +58,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(upload.router, prefix="/api")
-app.include_router(convert.router, prefix="/api")
-app.include_router(pdf.router, prefix="/api")
-app.include_router(generate.router, prefix="/api")
-app.include_router(history.router, prefix="/api")
-app.include_router(download.router, prefix="/api")
-app.include_router(formats.router, prefix="/api")
-app.include_router(jobs.router, prefix="/api")
 app.include_router(auth.router, prefix="/api/auth")
-app.include_router(compare.router, prefix="/api")
-app.include_router(payments.router, prefix="/api/payments")
-app.include_router(admin.router)
-app.include_router(files.router, prefix="/api")
-app.include_router(images.router, prefix="/api")
-app.include_router(documents.router, prefix="/api")
-app.include_router(usage.router, prefix="/api")
 app.include_router(analysis.router, prefix="/api")
 
 
@@ -107,8 +78,8 @@ if FRONTEND_DIR.exists():
         they must return proper 404s if missing so browsers don't interpret
         HTML as CSS/JavaScript (strict MIME type checking).
 
-        Extensionless routes (e.g. /convert) are resolved to their .html
-        counterpart (e.g. /convert.html) for Next.js static export compatibility.
+        Extensionless routes (e.g. /analyzer) are resolved to their .html
+        counterpart (e.g. /analyzer.html) for Next.js static export compatibility.
         """
 
         async def get_response(self, path: str, scope: Scope):
