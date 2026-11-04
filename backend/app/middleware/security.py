@@ -69,7 +69,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             return False
         try:
             # Token format: timestamp.hmac
-            parts = token.split(".")
+            parts = token.split("|")
             if len(parts) != 2:
                 return False
             timestamp_str, hmac_hex = parts
@@ -86,7 +86,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         """Generate a CSRF token."""
         timestamp = str(time.time())
         token_hmac = hmac.new(secret, timestamp.encode(), hashlib.sha256).hexdigest()
-        return f"{timestamp}.{token_hmac}"
+        return f"{timestamp}|{token_hmac}"
 
     async def dispatch(self, request: Request, call_next):
         # Only protect state-changing methods
