@@ -9,19 +9,19 @@ ENV NODE_OPTIONS=--max-old-space-size=1536
 # Install system deps for native module compilation (esbuild, SWC, etc.)
 RUN apk add --no-cache python3 make g++
 
-# Install backend deps
-COPY backend/package.json ./backend/package.json
-RUN cd backend && npm install --no-audit --no-fund --jobs=1 --maxsemi=1
+# Install backend deps (lockfile-based, reproducible)
+COPY backend/package.json backend/package-lock.json ./backend/
+RUN cd backend && npm ci --no-audit --no-fund --jobs=1 --maxsemi=1
 
-# Install frontend deps
-COPY frontend/package.json ./frontend/package.json
-RUN cd frontend && npm install --no-audit --no-fund --jobs=1 --maxsemi=1
+# Install frontend deps (lockfile-based, reproducible)
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN cd frontend && npm ci --no-audit --no-fund --jobs=1 --maxsemi=1
 
 # Copy source
 COPY . .
 
 # Build frontend + backend
-RUN cd frontend && npm run build --no-audit --no-fund && cd ../backend && npx tsc
+RUN cd frontend && npm run build --no-audit --no-fund && cd ../backend && ./node_modules/.bin/tsc
 
 WORKDIR /app/backend
 
