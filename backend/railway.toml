@@ -1,0 +1,20 @@
+[build]
+  builder = "nixpacks"
+
+[deploy]
+  startCommand = "npm start"
+  healthcheckPath = "/health"
+  healthcheckTimeout = 300
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+
+[[services.postgresql]]
+  name = "everydoc-db"
+  plan = "developer"
+
+[[volumes]]
+  name = "everydoc-storage"
+  mountPath = "/app/storage"
+  size = "10"
