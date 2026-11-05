@@ -1,11 +1,12 @@
 import { Router } from "express";
 import multer from "multer";
-import { copyFileSync, unlinkSync } from "fs";
+import { readFileSync } from "fs";
 import { query } from "../db/pool";
 import { asyncHandler } from "../middleware/error";
 import { requireUser } from "../middleware/auth";
-import { convertFile, isSupported, getMimeForFormat } from "../services/conversion";
-import { storagePath, readFile } from "../services/filesystem";
+import { conversionQueue } from "../services/queue";
+import { uploadFile, isConfigured, getSignedDownloadUrl } from "../services/storage";
+import { getMimeForFormat } from "../services/conversion";
 import { z } from "zod";
 
 const router = Router();
@@ -14,6 +15,14 @@ const upload = multer({ dest: "/tmp" });
 const convertSchema = z.object({
   targetFormat: z.enum(["pdf", "docx", "html", "md"]),
 });
+
+const SOURCE_EXT_TO_FORMAT: Record<string, "pdf" | "docx" | "html" | "md"> = {
+  pdf: "pdf",
+  docx: "docx",
+  html: "html",
+  md: "md",
+  markdown: "md",
+};
 
 router.post("/", requireUser, upload.single("file"), asyncHandler(async (req: any, res: any) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded", status: 400 });
@@ -25,52 +34,45 @@ router.post("/", requireUser, upload.single("file"), asyncHandler(async (req: an
   const originalName = req.file.originalname;
   const sourceExt = originalName.split(".").pop()?.toLowerCase() ?? "";
 
-  let sourceFormat: "pdf" | "docx" | "html" | "md";
-  switch (sourceExt) {
-    case "pdf": sourceFormat = "pdf"; break;
-    case "docx": sourceFormat = "docx"; break;
-    case "html": sourceFormat = "html"; break;
-    case "md": case "markdown": sourceFormat = "md"; break;
-    default:
-      unlinkSync(req.file.path);
-      return res.status(400).json({ error: `Unsupported source format: .${sourceExt}`, status: 400 });
+  const sourceFormat = SOURCE_EXT_TO_FORMAT[sourceExt];
+  if (!sourceFormat) {
+    return res.status(400).json({ error: `Unsupported source format: .${sourceExt}`, status: 400 });
   }
 
-  const sourceFilename = req.file.filename;
-  // Multer writes to /tmp; copy into persistent storage so convertFile can read it
-  copyFileSync(req.file.path, storagePath(sourceFilename));
-  unlinkSync(req.file.path);
+  // Upload source to S3
+  const sourceBuffer = readFileSync(req.file.path);
+  const sourceKey = `uploads/${userId}/${req.file.filename}_${originalName}`;
+  await uploadFile(sourceKey, sourceBuffer, req.file.mimetype);
 
+  // Create conversion job
   const { rows } = await query(
     `INSERT INTO conversion_jobs (user_id, source_filename, source_path, target_format, status)
      VALUES ($1, $2, $3, $4, 'queued')
      RETURNING id, user_id, source_filename, target_format, status, created_at`,
-    [userId, originalName, sourceFilename, targetFormat],
+    [userId, originalName, sourceKey, targetFormat],
   );
   const job = rows[0];
 
-  // Process synchronously for MVP
-  try {
-    const { outputFilename, mimeType } = await convertFile(sourceFilename, sourceFormat, targetFormat);
-    await query(
-      `UPDATE conversion_jobs SET status = 'completed', output_path = $1, completed_at = NOW() WHERE id = $2`,
-      [outputFilename, job.id],
-    );
-    res.json({
-      id: job.id,
-      status: "completed",
+  // Enqueue async conversion
+  await conversionQueue.add(
+    "convert",
+    {
+      jobId: job.id,
+      userId,
+      sourceKey,
+      sourceFormat,
       targetFormat,
-      outputFilename,
-      mimeType,
-      downloadUrl: `/api/v1/convert/${job.id}/download`,
-    });
-  } catch (err) {
-    await query(
-      `UPDATE conversion_jobs SET status = 'failed', error = $1 WHERE id = $2`,
-      [String(err), job.id],
-    );
-    res.status(500).json({ error: "Conversion failed", status: 500 });
-  }
+      originalName,
+    },
+    { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+  );
+
+  res.json({
+    id: job.id,
+    status: "queued",
+    targetFormat,
+    downloadUrl: `/api/v1/convert/${job.id}/download`,
+  });
 }));
 
 router.get("/:jobId", requireUser, asyncHandler(async (req: any, res: any) => {
@@ -91,7 +93,6 @@ router.get("/:jobId", requireUser, asyncHandler(async (req: any, res: any) => {
     completedAt: job.completed_at,
   };
   if (job.output_path) {
-    response.outputFilename = job.output_path;
     response.downloadUrl = `/api/v1/convert/${job.id}/download`;
     response.mimeType = getMimeForFormat(job.target_format);
   }
@@ -108,8 +109,15 @@ router.get("/:jobId/download", requireUser, asyncHandler(async (req: any, res: a
   );
   if (rows.length === 0) return res.status(404).json({ error: "Job not found or not completed", status: 404 });
   const job = rows[0];
-  const buf = readFile(job.output_path);
-  res.set("Content-Disposition", `attachment; filename="${job.output_path}"`);
+
+  if (isConfigured()) {
+    const url = await getSignedDownloadUrl(job.output_path, 300);
+    return res.redirect(url);
+  }
+
+  // Fallback: read from S3 via storage service
+  const buf = await require("../services/storage").downloadFile(job.output_path);
+  res.set("Content-Disposition", `attachment; filename="${job.output_path.split("/").pop()}"`);
   res.set("Content-Type", getMimeForFormat(job.target_format));
   res.send(buf);
 }));

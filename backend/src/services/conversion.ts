@@ -1,6 +1,5 @@
-import { PDFDocument } from "pdf-lib";
-import { saveFile, readFile } from "./filesystem";
-import { join } from "path";
+const { PDFDocument } = require("pdf-lib");
+const { readFile, saveFile } = require("./filesystem");
 
 const pdfParse: any = require("pdf-parse");
 const mammoth: any = require("mammoth");
@@ -65,63 +64,53 @@ async function textToDocx(text: string): Promise<Buffer> {
   return Buffer.from(buf);
 }
 
-export async function convertFile(
-  sourceFilename: string,
+export async function convertBuffer(
+  sourceBuffer: Buffer,
   sourceFormat: SourceFormat,
   targetFormat: TargetFormat,
-): Promise<{ outputFilename: string; mimeType: string }> {
+): Promise<Buffer> {
   if (!isSupported(targetFormat)) {
     throw new Error(`Unsupported target format: ${targetFormat}`);
   }
 
-  const buf = readFile(sourceFilename);
   let text = "";
 
   switch (sourceFormat) {
     case "pdf":
-      text = await extractTextFromPdf(buf);
+      text = await extractTextFromPdf(sourceBuffer);
       break;
     case "docx":
-      text = await docxToHtml(buf);
+      text = await docxToHtml(sourceBuffer);
       text = await htmlToMd(text);
       break;
     case "html":
-      text = await htmlToMd(buf.toString("utf-8"));
+      text = await htmlToMd(sourceBuffer.toString("utf-8"));
       break;
     case "md":
-      text = buf.toString("utf-8");
+      text = sourceBuffer.toString("utf-8");
       break;
   }
 
   let outBuf: Buffer;
-  let mime: string;
 
   switch (targetFormat) {
     case "pdf":
       outBuf = await textToPdf(text);
-      mime = "application/pdf";
       break;
     case "docx":
       outBuf = await textToDocx(text);
-      mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       break;
     case "html":
       outBuf = Buffer.from(await mdToHtml(text), "utf-8");
-      mime = "text/html";
       break;
     case "md":
       outBuf = Buffer.from(text, "utf-8");
-      mime = "text/markdown";
       break;
     default:
       throw new Error(`Unsupported target format: ${targetFormat}`);
   }
 
-  const base = sourceFilename.replace(/\.[^/.]+$/, "");
-  const outputFilename = `${base}_converted_${Date.now()}${extOf(targetFormat)}`;
-  const outPath = saveFile(outputFilename, outBuf);
-
-  return { outputFilename, mimeType: mime };
+  return outBuf;
 }
 
 export function getMimeForFormat(fmt: TargetFormat): string {

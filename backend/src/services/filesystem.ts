@@ -1,6 +1,17 @@
 import { writeFileSync, readFileSync, existsSync, unlinkSync, readdirSync } from "fs";
 import { join } from "path";
-import { storagePath } from "../services/storage";
+
+const STORAGE_PATH = process.env.STORAGE_PATH || "/app/storage";
+
+export function ensureStorageDir() {
+  if (!existsSync(STORAGE_PATH)) {
+    import("fs").then((fs) => fs.mkdirSync(STORAGE_PATH, { recursive: true }));
+  }
+}
+
+export function storagePath(filename: string): string {
+  return join(STORAGE_PATH, filename);
+}
 
 export function saveFile(filename: string, data: Buffer): string {
   const p = storagePath(filename);
@@ -29,4 +40,4 @@ export function listFiles(dir: string = ""): string[] {
   return readdirSync(p);
 }
 
-export { join, storagePath };
+export { join };

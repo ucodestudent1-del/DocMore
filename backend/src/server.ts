@@ -1,10 +1,8 @@
 import { createApp } from "./app";
 import { config } from "./config";
 import { migrate } from "./db/migrate";
-import { ensureStorageDir } from "./services/storage";
 
 async function bootstrap() {
-  ensureStorageDir();
   await migrate();
 
   const app = createApp();

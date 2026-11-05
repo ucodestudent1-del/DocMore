@@ -2,9 +2,7 @@ import { Router } from "express";
 import { query } from "../db/pool";
 import { asyncHandler } from "../middleware/error";
 import { requireUser } from "../middleware/auth";
-import { readFile } from "../services/filesystem";
-import { getMimeForFormat } from "../services/conversion";
-import { PDFDocument } from "pdf-lib";
+import { downloadFile, uploadFile, fileExists, isConfigured, getSignedDownloadUrl } from "../services/storage";
 
 const marked: any = require("marked");
 const TurndownService: any = require("turndown");
@@ -39,6 +37,7 @@ router.get("/:docId/:format", requireUser, asyncHandler(async (req: any, res: an
 
   switch (format) {
     case "pdf": {
+      const { PDFDocument } = require("pdf-lib");
       const pdfDoc = await PDFDocument.create();
       let page = pdfDoc.addPage([595, 842]);
       page.drawText(title, { x: 50, y: 800, size: 18 });
@@ -84,6 +83,13 @@ router.get("/:docId/:format", requireUser, asyncHandler(async (req: any, res: an
     }
     default:
       return res.status(400).json({ error: "Unsupported format", status: 400 });
+  }
+
+  if (isConfigured()) {
+    const key = `exports/${userId}/${docId}/${filename}`;
+    await uploadFile(key, outBuf, mime);
+    const url = await getSignedDownloadUrl(key, 300);
+    return res.redirect(url);
   }
 
   res.set("Content-Disposition", `attachment; filename="${filename}"`);
