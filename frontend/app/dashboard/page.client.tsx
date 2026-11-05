@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api, downloadFile } from "@/lib/api";
 import { useToast } from "@/components/Toast";
-import { Plus, FileText, LayoutList, Download, Search, Clock, ArrowRight } from "lucide-react";
+import { Plus, FileText, Download, Search, Clock, ArrowRight, TrendingUp } from "lucide-react";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,9 @@ import Sidebar from "@/components/Sidebar";
 
 const statCards = [
   { label: "Documents", value: "0", icon: FileText, color: "text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20" },
-  { label: "Templates", value: "0", icon: LayersIcon, color: "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" },
-  { label: "Conversions", value: "0", icon: RefreshCwIcon, color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20" },
-  { label: "Storage", value: "1.2 GB / 5 GB", icon: Clock, color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20" },
+  { label: "Templates", value: "0", icon: "Layers", color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20" },
+  { label: "Conversions", value: "0", icon: "RefreshCw", color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20" },
+  { label: "Storage", value: "1.2 GB / 5 GB", icon: Clock, color: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20" },
 ];
 
 export default function DashboardClient() {
@@ -90,7 +90,7 @@ export default function DashboardClient() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-secondary dark:bg-slate-950">
       {!collapsed && <Sidebar user={user} onLogout={() => {}} collapsed={collapsed} setCollapsed={setCollapsed} />}
       <div className={`transition-all duration-300 ${collapsed ? "pl-16" : "pl-64"}`}>
         <div className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-input px-6 py-4">
@@ -114,7 +114,7 @@ export default function DashboardClient() {
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {statCards.map((s) => {
-              const Icon = s.icon;
+              const Icon: any = s.icon === "Layers" ? LayersIcon : s.icon === "RefreshCw" ? RefreshCwIcon : s.icon;
               return (
                 <Card key={s.label}>
                   <CardHeader className="pb-3 flex items-center justify-between">
@@ -122,7 +122,7 @@ export default function DashboardClient() {
                       <CardTitle className="text-sm">{s.label}</CardTitle>
                       <CardDescription className="text-xs">{s.value}</CardDescription>
                     </div>
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.color}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.color}`}>
                       <Icon size={16} strokeWidth={2} />
                     </div>
                   </CardHeader>
@@ -155,10 +155,10 @@ export default function DashboardClient() {
                       className="flex-1 text-sm"
                     />
                   </div>
-                  <div className="border rounded-lg overflow-hidden">
+                  <div className="border rounded-xl overflow-hidden">
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                        <tr className="bg-secondary dark:bg-slate-800/50">
                           <th className="px-4 py-3 font-medium text-slate-600 dark:text-slate-300">Title</th>
                           <th className="px-4 py-3 font-medium text-slate-600 dark:text-slate-300">Status</th>
                           <th className="px-4 py-3 font-medium text-slate-600 dark:text-slate-300">Actions</th>
@@ -183,7 +183,7 @@ export default function DashboardClient() {
                           </tr>
                         ) : (
                           filteredDocs.map((d) => (
-                            <tr key={d.id} className="border-b border-input hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                            <tr key={d.id} className="border-b border-input hover:bg-secondary/50 dark:hover:bg-slate-800/50 transition-colors">
                               <td className="px-4 py-3 dark:text-white">{d.title}</td>
                               <td className="px-4 py-3">
                                 <Badge variant="outline" className="text-xs">
@@ -196,7 +196,7 @@ export default function DashboardClient() {
                                     href={`/documents?id=${d.id}`}
                                     className="text-sm text-brand-600 dark:text-brand-400 hover:underline"
                                   >
-                                    Open
+                                    Open <ArrowRight size={14} strokeWidth={2} className="ml-1" />
                                   </a>
                                   <button
                                     onClick={() => {
@@ -264,7 +264,7 @@ export default function DashboardClient() {
                       templates.slice(0, 4).map((t) => (
                         <div
                           key={t.id}
-                          className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer group"
+                          className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-secondary/50 dark:hover:bg-slate-800/50 cursor-pointer group transition-colors"
                           onClick={() => {
                             api("/api/v1/documents", {
                               method: "POST",
@@ -293,7 +293,7 @@ export default function DashboardClient() {
               <Card>
                 <CardContent className="text-center py-12">
                   <p className="text-slate-500 dark:text-slate-400 text-sm">Get started by creating your first document.</p>
-                  <Button className="mt-4" onClick={() => (document.querySelector('input[placeholder="Document title"]') as HTMLElement | null)?.focus()}>
+                  <Button className="mt-6" onClick={() => (document.querySelector('input[placeholder="Document title"]') as HTMLElement | null)?.focus()}>
                     <Plus size={16} strokeWidth={2} className="mr-2" /> Create your first document
                   </Button>
                 </CardContent>
@@ -306,9 +306,9 @@ export default function DashboardClient() {
   );
 }
 
-function LayersIcon({ className, size = 16, strokeWidth = 2, ...props }: React.SVGProps<SVGSVGElement> & { size?: number; strokeWidth?: number }) {
+function LayersIcon({ className }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M12 2l2.87 4.45L19 11l-2.87 4.45L12 22l-2.87-4.45L5 11l2.87-4.45L12 2z" />
       <path d="M2 11h20" />
       <path d="M22 4L12 14.01L2 4z" />
@@ -316,13 +316,23 @@ function LayersIcon({ className, size = 16, strokeWidth = 2, ...props }: React.S
   );
 }
 
-function RefreshCwIcon({ className, size = 16, strokeWidth = 2, ...props }: React.SVGProps<SVGSVGElement> & { size?: number; strokeWidth?: number }) {
+function RefreshCwIcon({ className }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M1 4v4a1 1 0 0 0 1 1h4" />
       <path d="M4 1v16a1 1 0 0 0 1 1h4" />
       <path d="M23 20v-4a1 1 0 0 0-1-1h-4" />
       <path d="M20 23V7a1 1 0 0 0-1-1h-4" />
+    </svg>
+  );
+}
+
+function LayoutList({ className }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="18" x2="21" y2="18" />
     </svg>
   );
 }

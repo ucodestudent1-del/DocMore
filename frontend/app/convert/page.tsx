@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 type Format = "pdf" | "docx" | "html" | "md";
 
 const FORMATS: Format[] = ["pdf", "docx", "html", "md"];
+
 const EXT_LABEL: Record<Format, string> = {
   pdf: "PDF",
   docx: "Word (.docx)",
@@ -21,7 +23,7 @@ const EXT_LABEL: Record<Format, string> = {
   md: "Markdown",
 };
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB free tier
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 type JobStatus = "queued" | "processing" | "completed" | "failed";
 
@@ -79,7 +81,7 @@ export default function Convert() {
   const validateFile = useCallback((f: File): string | null => {
     const sf = sourceFormatOf(f.name);
     if (!sf) return "Unsupported file type. Use PDF, DOCX, HTML, or Markdown.";
-    if (f.size > MAX_FILE_SIZE) return `${f.name} exceeds the 25 MB free-tier limit.`;
+    if (f.size > MAX_FILE_SIZE) return f.name + " exceeds the 25 MB free-tier limit.";
     return null;
   }, [sourceFormatOf]);
 
@@ -87,7 +89,7 @@ export default function Convert() {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
-        const data = await api(`/api/v1/convert/${id}`);
+        const data = await api("/api/v1/convert/" + id);
         setJob((prev) => (prev ? { ...prev, status: data.status, downloadUrl: data.downloadUrl, error: data.error || null } : prev));
         if (data.status === "completed" || data.status === "failed") {
           if (pollRef.current) clearInterval(pollRef.current);
@@ -119,14 +121,14 @@ export default function Convert() {
     form.append("targetFormat", targetFormat);
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/convert`, {
+      const res = await fetch(API_BASE + "/api/v1/convert", {
         method: "POST",
         headers: { "X-User-Id": localStorage.getItem("ed_user_id") || "" },
         body: form,
       });
       if (!res.ok) {
         const t = await res.text().catch(() => "");
-        throw new Error(t || `Conversion failed ${res.status}`);
+        throw new Error(t || "Conversion failed " + res.status);
       }
       const data = await res.json();
       setJob({
@@ -148,16 +150,27 @@ export default function Convert() {
 
   const removeFile = () => setFile(null);
 
-  const downloadJob = () => {
+  const downloadJob = async () => {
     if (!job?.downloadUrl) return;
-    downloadFile(job.downloadUrl, `${job.sourceFilename.replace(/\.[^/.]+$/, "")}.${job.targetFormat}`).catch((e: any) =>
-      toast({ title: "Download failed", description: e.message, variant: "destructive" })
-    );
+    try {
+      const name = job.sourceFilename.replace(/\.[^/.]+$/, "");
+      await downloadFile(job.downloadUrl, name + "." + job.targetFormat);
+    } catch (e: any) {
+      toast({ title: "Download failed", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const formatButtonClass = (f: Format) => {
+    const base = "flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 text-sm transition-all duration-200";
+    if (targetFormat === f) {
+      return base + " border-brand-600 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 shadow-sm shadow-brand-500/20";
+    }
+    return base + " border-input text-slate-600 dark:text-slate-300 hover:bg-accent dark:hover:bg-slate-800";
   };
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Convert a File</h1>
           <p className="text-slate-500 dark:text-slate-400">
@@ -172,7 +185,7 @@ export default function Convert() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+        <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
           {error}
         </div>
       )}
@@ -184,11 +197,11 @@ export default function Convert() {
             Select a single file (PDF, DOCX, HTML, or Markdown) to convert.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6">
           <form onSubmit={handleConvert}>
             <div
               onClick={() => (document.getElementById("convert-file") as HTMLInputElement)?.click()}
-              className="border-2 border-dashed border-input rounded-xl p-8 text-center hover:border-brand-600 dark:hover:border-brand-500 transition cursor-pointer group"
+              className="border-2 border-dashed border-input rounded-2xl p-8 text-center hover:border-brand-600 dark:hover:border-brand-500 transition-all cursor-pointer group"
             >
               <input
                 id="convert-file"
@@ -199,21 +212,21 @@ export default function Convert() {
                   if (e.target.files?.[0]) setFile(e.target.files[0]);
                 }}
               />
-              <div className="flex flex-col items-center gap-2">
-                <Upload size={32} strokeWidth={2} className="text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition" />
+              <div className="flex flex-col items-center gap-3">
+                <Upload size={36} strokeWidth={2} className="text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
                 <p className="text-sm text-slate-600 dark:text-slate-300">Drag &amp; drop a file, or click to browse</p>
               </div>
               {file && (
-                <div className="flex items-center gap-3 px-4 py-2 mt-4 rounded-lg bg-slate-50 dark:bg-slate-800 border border-input">
-                  <FileText size={16} strokeWidth={2} className="text-brand-600 dark:text-brand-400" />
-                  <div>
+                <div className="flex items-center gap-4 px-4 py-3 mt-4 rounded-xl bg-secondary dark:bg-slate-800 border border-input">
+                  <FileText size={18} strokeWidth={2} className="text-brand-600 dark:text-brand-400" />
+                  <div className="flex-1">
                     <div className="text-sm font-medium text-slate-900 dark:text-white truncate" title={file.name}>{file.name}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">{(file.size / 1024).toFixed(1)} KB</div>
                   </div>
                   <button
                     type="button"
                     onClick={removeFile}
-                    className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition"
+                    className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                     aria-label="Remove file"
                   >
                     ×
@@ -223,16 +236,13 @@ export default function Convert() {
               <p className="text-xs text-slate-500 dark:text-slate-400">Max 25 MB per file on the free tier.</p>
             </div>
 
-            <Separator orientation="vertical" className="my-6" />
+            <Separator className="my-6" />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Target format</label>
               <div className="flex gap-2">
                 {FORMATS.map((f) => (
-                  <label
-                    key={f}
-                    className={`flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-sm transition ${targetFormat === f ? "border-brand-600 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400" : "border-input text-slate-600 dark:text-slate-300 hover:bg-accent dark:hover:bg-slate-800"}`}
-                  >
+                  <label key={f} className={formatButtonClass(f)}>
                     <input
                       type="radio"
                       name="targetFormat"
@@ -248,7 +258,7 @@ export default function Convert() {
             </div>
 
             <div className="pt-4">
-              <Button type="submit" disabled={loading || !file} className="w-full">
+              <Button type="submit" disabled={loading || !file} className="w-full shadow-lg shadow-brand-500/30">
                 {loading ? (
                   <><RefreshCw size={18} strokeWidth={2} className="mr-2 inline animate-spin" /> Converting...</>
                 ) : (
@@ -268,10 +278,10 @@ export default function Convert() {
               {statusLabel[job.status]}
             </Badge>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <div className="flex justify-between text-sm">
               <span className="text-slate-600 dark:text-slate-400">Source</span>
-              <span className="font-medium text-slate-900 dark:text-white">{job.sourceFilename}</span>
+              <span className="font-medium text-slate-900 dark:text-white truncate">{job.sourceFilename}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-600 dark:text-slate-400">Target</span>
@@ -279,19 +289,19 @@ export default function Convert() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-600 dark:text-slate-400">Status</span>
-              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor[job.status]}`}>
+              <span className={statusColor[job.status] + " text-xs font-semibold px-2.5 py-1 rounded-full"}>
                 {statusLabel[job.status]}
               </span>
             </div>
             {job.status === "completed" && job.downloadUrl && (
               <CardFooter>
-                <Button onClick={downloadJob} className="w-full flex items-center justify-center gap-2">
+                <Button onClick={downloadJob} className="w-full shadow-sm">
                   <Download size={16} strokeWidth={2} /> Download {job.sourceFilename.replace(/\.[^/.]+$/, "")}.{job.targetFormat}
                 </Button>
               </CardFooter>
             )}
             {job.status === "failed" && (
-              <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+              <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
                 {job.error}
               </div>
             )}

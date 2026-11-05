@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import {
   FileText,
   RefreshCw,
@@ -7,6 +10,9 @@ import {
   Download,
   Upload,
   ArrowRight,
+  Zap,
+  Rocket,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,16 +32,19 @@ const features = [
     title: "Document Generation",
     description: "Create professional documents quickly using customizable templates.",
     icon: FileText,
+    gradient: "from-brand-500 to-indigo-500",
   },
   {
     title: "File Conversion",
     description: "Convert documents between supported file formats with ease.",
     icon: RefreshCw,
+    gradient: "from-emerald-500 to-teal-500",
   },
   {
     title: "Document Templates",
     description: "Save time with ready-made templates for your documents.",
     icon: Layers,
+    gradient: "from-purple-500 to-fuchsia-500",
   },
 ];
 
@@ -66,6 +75,13 @@ const formats = [
   { label: "PPTX", ext: ".pptx", note: "coming soon" },
 ];
 
+const stats = [
+  { label: "Documents processed", value: "10K+" },
+  { label: "File formats supported", value: "12+" },
+  { label: "Avg. conversion time", value: "< 5s" },
+  { label: "Uptime", value: "99.9%" },
+];
+
 const faqs = [
   {
     q: "What file formats does EveryDoc support?",
@@ -86,27 +102,35 @@ const faqs = [
 ];
 
 export default function Page() {
+  const [hoveredFormat, setHoveredFormat] = useState<string | null>(null);
+
   return (
     <div className="bg-background text-foreground">
-      <section className="relative px-4 py-16 sm:py-24 lg:py-32 overflow-hidden">
+      {/* Hero Section */}
+      <section className="relative px-4 py-16 sm:py-28 lg:py-40 overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-brand-500/10 rounded-full blur-[120px] -z-10" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-purple-500/10 rounded-full blur-[120px] -z-10" />
+
         <div className="max-w-5xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/30 text-brand-600 dark:text-brand-400 text-xs font-semibold uppercase tracking-wider">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            <div className="space-y-8">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800/30 text-brand-600 dark:text-brand-400 text-xs font-semibold uppercase tracking-wider">
+                <Zap size={14} strokeWidth={2} />
                 Document productivity platform
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-balance leading-tight">
-                Documents made simple.
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-balance leading-[1.1]">
+                Documents made <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-indigo-500">
+                  simple.
+                </span>
               </h1>
-              <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 leading-relaxed max-w-lg">
                 Generate, convert, and manage your documents — all in one place.
               </p>
-              <p className="text-slate-500 dark:text-slate-400 leading-relaxed max-w-lg">
-                Create professional documents and convert files between formats without the hassle.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 pt-6">
+              <div className="flex flex-col sm:flex-row gap-4 pt-8">
                 <Link href="/register">
-                  <Button size="lg" className="w-full sm:w-auto">
+                  <Button size="lg" className="w-full sm:w-auto shadow-lg shadow-brand-500/30">
                     Get Started Free <ArrowRight size={18} strokeWidth={2} className="ml-2" />
                   </Button>
                 </Link>
@@ -125,10 +149,25 @@ export default function Page() {
         </div>
       </section>
 
-      <section className="border-y border-input bg-slate-50 dark:bg-slate-950/50">
-        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24">
+      {/* Trust Bar */}
+      <section className="border-y border-input bg-secondary/50 dark:bg-slate-950/30">
+        <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+            {stats.map((stat) => (
+              <div key={stat.label} className="flex items-center gap-2">
+                <span className="font-bold text-slate-900 dark:text-white">{stat.value}</span>
+                <span>{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="py-20 sm:py-28">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight mb-4">Everything you need to move from idea to document</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Everything you need to move from idea to document</h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               From first draft to final export, EveryDoc handles the busywork so you can focus on what matters.
             </p>
@@ -137,14 +176,26 @@ export default function Page() {
             {features.map((f) => {
               const Icon = f.icon;
               return (
-                <Card key={f.title}>
-                  <CardHeader className="pb-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center text-brand-600 dark:text-brand-400 mb-4">
-                      <Icon size={20} strokeWidth={2} />
+                <Card
+                  key={f.title}
+                  className="group relative overflow-hidden hover:border-brand-200 dark:hover:border-brand-800 transition-all duration-300"
+                >
+                  <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-brand-600 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <CardHeader className="pb-4">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-gradient-to-br from-brand-100 to-purple-100 dark:from-brand-900/20 dark:to-purple-900/20 text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
+                      <Icon size={22} strokeWidth={2} />
                     </div>
-                    <CardTitle>{f.title}</CardTitle>
+                    <CardTitle className="text-lg">{f.title}</CardTitle>
                     <CardDescription>{f.description}</CardDescription>
                   </CardHeader>
+                  <CardFooter className="pt-4 border-t">
+                    <Link
+                      href="/convert"
+                      className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
+                    >
+                      Get started <ArrowRight size={14} strokeWidth={2} />
+                    </Link>
+                  </CardFooter>
                 </Card>
               );
             })}
@@ -152,19 +203,20 @@ export default function Page() {
         </div>
       </section>
 
-      <section className="py-16 sm:py-24">
+      {/* How it works */}
+      <section className="py-20 sm:py-28 border-y border-input">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold tracking-tight">How EveryDoc works</h2>
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+            <div className="space-y-8">
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">How EveryDoc works</h2>
+              <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
                 Turn your ideas into polished documents in three simple steps.
               </p>
             </div>
             <div className="space-y-6">
               {steps.map((s) => (
                 <div key={s.step} className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white text-sm font-semibold shrink-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white text-sm font-semibold shrink-0 flex-shrink-0">
                     {s.step}
                   </div>
                   <div>
@@ -178,38 +230,50 @@ export default function Page() {
         </div>
       </section>
 
-      <section className="border-y border-input">
-        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24">
+      {/* Supported formats */}
+      <section className="py-20 sm:py-28 bg-secondary/50 dark:bg-slate-950/30">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold tracking-tight mb-4">Supported file formats</h2>
-            <p className="text-slate-600 dark:text-slate-400">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Supported file formats</h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400">
               Convert between the formats you use every day.
             </p>
           </div>
           <div className="grid md:grid-cols-4 gap-4">
-            {formats.map((f) => (
-              <div
-                key={f.label}
-                className="flex flex-col items-center gap-2 rounded-xl border border-input bg-background p-4 hover:border-brand-600 dark:hover:border-brand-500 transition"
-              >
-                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-                  {f.label}
-                </span>
-                {f.note && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    {f.note}
+            {formats.map((f) => {
+              const isHovered = hoveredFormat === f.label;
+              return (
+                <div
+                  key={f.label}
+                  onMouseEnter={() => setHoveredFormat(f.label)}
+                  onMouseLeave={() => setHoveredFormat(null)}
+                  className={cn(
+                    "flex flex-col items-center gap-3 rounded-2xl border p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg",
+                    isHovered
+                      ? "border-brand-600 dark:border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-brand-500/10"
+                      : "border-input bg-background dark:bg-card hover:border-brand-200 dark:hover:border-brand-800"
+                  )}
+                >
+                  <span className={cn("text-sm font-medium", isHovered ? "text-brand-600 dark:text-brand-400" : "text-slate-600 dark:text-slate-300")}>
+                    {f.label}
                   </span>
-                )}
-              </div>
-            ))}
+                  {f.note && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider font-medium">
+                      {f.note}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <section className="py-16 sm:py-24 bg-slate-50 dark:bg-slate-950/50">
+      {/* Pricing */}
+      <section className="py-20 sm:py-28">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight mb-6">Simple, transparent pricing</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Simple, transparent pricing</h2>
             <p className="text-lg text-slate-600 dark:text-slate-400">
               Start free. Upgrade when you need more documents, conversions, and AI credits.
             </p>
@@ -241,17 +305,30 @@ export default function Page() {
                 highlight: true,
               },
             ].map((tier) => (
-              <Card key={tier.name} className={`flex flex-col ${tier.highlight ? "border-brand-600 bg-brand-50 dark:bg-brand-900/20" : ""}`}>
+              <Card
+                key={tier.name}
+                className={`flex flex-col relative ${
+                  tier.highlight
+                    ? "border-brand-600 bg-brand-50 dark:bg-brand-900/20 shadow-xl shadow-brand-500/20 ring-1 ring-brand-600/20"
+                    : "border-input hover:border-brand-200 dark:hover:border-brand-800 transition-all"
+                }`}
+              >
+                {tier.highlight && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge variant="outline" className="text-xs font-bold uppercase tracking-wider">
+                      Most popular
+                    </Badge>
+                  </div>
+                )}
                 <CardHeader>
-                  {tier.highlight && <Badge variant="outline" className="text-xs">Most popular</Badge>}
-                  <CardTitle className="text-lg">{tier.name}</CardTitle>
-                  <div className="flex items-baseline gap-1 mt-2">
-                    <span className="text-3xl font-bold">{tier.price}</span>
+                  <h2 className="text-lg font-bold">{tier.name}</h2>
+                  <div className="flex items-baseline gap-1 mt-3">
+                    <span className="text-4xl font-bold">{tier.price}</span>
                     <span className="text-sm text-muted-foreground">/mo</span>
                   </div>
-                  <CardDescription>{tier.desc}</CardDescription>
+                  <CardDescription className="mt-2">{tier.desc}</CardDescription>
                 </CardHeader>
-                <CardContent className="pb-4">
+                <CardContent className="pb-4 flex-1">
                   <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
                     {tier.features.map((f) => (
                       <li key={f} className="flex items-center gap-2">
@@ -262,7 +339,11 @@ export default function Page() {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button className="w-full" variant={tier.highlight ? "default" : "outline"}>
+                  <Button
+                    className="w-full"
+                    variant={tier.highlight ? "default" : "outline"}
+                    disabled={!tier.highlight && false}
+                  >
                     {tier.cta}
                   </Button>
                 </CardFooter>
@@ -272,39 +353,47 @@ export default function Page() {
         </div>
       </section>
 
-      <section className="py-16 sm:py-24">
+      {/* CTA Section */}
+      <section className="py-24 sm:py-32">
         <div className="max-w-3xl mx-auto px-4">
-          <h2 className="text-3xl font-bold tracking-tight mb-8">Frequently asked questions</h2>
-          <div className="space-y-4">
-            {faqs.map((faq, i) => (
-              <Card key={i} className="overflow-hidden">
-                <div className="p-6">
-                  <h3 className="font-semibold text-slate-900 dark:text-white">{faq.q}</h3>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{faq.a}</p>
-                </div>
-              </Card>
-            ))}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-brand-600 to-indigo-600 p-8 md:p-12 shadow-2xl shadow-brand-600/25">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/20 rounded-full blur-[100px] -z-10" />
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Ready to simplify your documents?</h2>
+            <p className="text-brand-100 mb-8 max-w-lg">
+              Join teams generating invoices, resumes, contracts, and reports in seconds — not hours.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link href="/register">
+                <Button size="lg" className="w-full sm:w-auto bg-white text-brand-600 hover:bg-brand-50 shadow-xl">
+                  Get Started Free <ArrowRight size={18} strokeWidth={2} className="ml-2" />
+                </Button>
+              </Link>
+              <Link href="/pricing" className="text-sm font-medium text-white underline underline-offset-4 hover:opacity-80">
+                Explore Pricing
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-input bg-background py-12">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+      {/* Footer */}
+      <footer className="border-t border-input bg-background py-16">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-2">
             <span className="font-bold text-lg tracking-tight text-brand-600 dark:text-brand-400">EveryDoc</span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-8 text-sm text-slate-600 dark:text-slate-400">
             <Link href="/pricing" className="hover:text-brand-600 dark:hover:text-brand-400 transition">
               Pricing
             </Link>
-            <span className="text-slate-400">·</span>
             <Link href="/" className="hover:text-brand-600 dark:hover:text-brand-400 transition">
               Features
             </Link>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-500">
-            © {new Date().getFullYear()} EveryDoc. All rights reserved.
-          </p>
+          <div className="flex items-center gap-6 text-xs text-slate-500 dark:text-slate-500">
+            <span>© {new Date().getFullYear()} EveryDoc.</span>
+            <span>All rights reserved.</span>
+          </div>
         </div>
       </footer>
     </div>
@@ -313,41 +402,53 @@ export default function Page() {
 
 function ConversionPreview() {
   return (
-    <div className="rounded-2xl border border-input bg-background shadow-lg p-6 dark:border-slate-700">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="h-3 w-3 rounded-full bg-red-500"></div>
-        <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
-        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+    <div className="relative rounded-3xl border border-input bg-background shadow-2xl p-6 md:p-8 dark:border-slate-700">
+      {/* Window controls */}
+      <div className="flex items-center gap-2.5 absolute top-4 left-4 z-10">
+        {[ "#ff5f56", "#ffbd2e", "#27c93f" ].map((color, i) => (
+          <div key={i} className="h-3 w-3 rounded-full border border-white/20" style={{ backgroundColor: color }} />
+        ))}
       </div>
+
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-6">
             <Upload size={16} strokeWidth={2} className="text-brand-600 dark:text-brand-400" />
             <span className="text-sm font-medium text-slate-900 dark:text-white">Upload document</span>
           </div>
-          <div className="border-2 border-dashed border-input rounded-xl p-6 text-center hover:border-brand-600 transition">
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Drag &amp; drop your file here</p>
-            <p className="text-xs text-slate-400 dark:text-slate-500">PDF · DOCX · HTML · Markdown</p>
+          <div className="border-2 border-dashed border-input rounded-2xl p-8 text-center hover:border-brand-600 dark:hover:border-brand-500 transition-all group cursor-pointer">
+            <div className="flex flex-col items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+              <Upload size={32} strokeWidth={2} className="text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400" />
+              <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">Drag &amp; drop your file here</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">PDF · DOCX · HTML · Markdown</p>
+            </div>
           </div>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-6 flex flex-wrap gap-2">
             {["PDF", "DOCX", "HTML", "MD"].map((f) => (
               <button
                 key={f}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-input bg-background hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 transition"
+                className="px-3 py-2 rounded-xl text-xs font-medium border border-input bg-background hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 transition-all"
               >
                 {f}
               </button>
             ))}
           </div>
         </div>
-        <div className="w-full lg:w-1/2">
-          <div className="rounded-xl border border-input bg-slate-50 dark:bg-slate-800 p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Preview</span>
-              <Download size={14} strokeWidth={2} className="text-slate-400" />
-            </div>
-            <div className="h-32 flex items-center justify-center">
-              <p className="text-sm text-slate-400 italic">Your document preview appears here</p>
+        <div className="w-full lg:w-1/2 flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Preview</span>
+            <Download size={14} strokeWidth={2} className="text-slate-400" />
+          </div>
+          <div className="flex-1 rounded-2xl border border-input bg-slate-50 dark:bg-slate-800 p-6 flex flex-col">
+            <div className="mb-4 h-1 bg-slate-200 dark:bg-slate-700 rounded w-full" />
+            <div className="mb-4 h-1 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-24 h-24 rounded-xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center mx-auto mb-3 border border-brand-100 dark:border-brand-800">
+                  <FileText size={24} strokeWidth={2} className="text-brand-400 dark:text-brand-500" />
+                </div>
+                <p className="text-sm text-slate-400 italic">Your document preview appears here</p>
+              </div>
             </div>
           </div>
         </div>
