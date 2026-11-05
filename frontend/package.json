@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -18,12 +19,34 @@
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.24.0",
+    "@babel/preset-react": "^7.24.0",
+    "@babel/preset-typescript": "^7.24.0",
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/yargs": "^17.0.32",
     "autoprefixer": "^10.4.19",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.4",
+    "ts-jest": "^29.1.2",
     "typescript": "^5.5.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "jest-environment-jsdom",
+    "testMatch": ["**/__tests__/**/*.test.{ts,tsx}", "**/*.test.{ts,tsx}"],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy",
+      "^@/(.*)$": "<rootDir>/app/$1"
+    },
+    "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
+    "testTimeout": 30000
   }
 }

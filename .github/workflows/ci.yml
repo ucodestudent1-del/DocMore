@@ -32,8 +32,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: cd backend && npm ci --no-audit --no-fund
       - run: cd frontend && npm ci --no-audit --no-fund
-      - run: cd backend && npm test -- --passWithNoTests || true
-      - run: cd frontend && npm test -- --passWithNoTests || true
+      - run: cd backend && npm test -- --passWithNoTests
+      - run: cd frontend && npm test -- --passWithNoTests
 
   build:
     runs-on: ubuntu-latest
