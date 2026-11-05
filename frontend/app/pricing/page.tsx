@@ -4,10 +4,13 @@ import { useState, useEffect } from "react";
 import { api, STRIPE_PUBLISHABLE_KEY } from "@/lib/api";
 import { useToast } from "@/components/Toast";
 import Navbar from "@/components/Navbar";
-import { CreditCard, Crown, DollarSign, Layers, ShieldCheck, Zap } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 const FEATURE_CHECK = <ShieldCheck size={16} strokeWidth={2} />;
-const FEATURE_CROSS = <span className="text-gray-400">—</span>;
+const FEATURE_CROSS = <span className="text-slate-400">—</span>;
 
 export default function PricingPage() {
   const [tiers, setTiers] = useState<any[]>([]);
@@ -30,7 +33,6 @@ export default function PricingPage() {
       });
       return;
     }
-    // Placeholder: redirect to Stripe Checkout once keys are configured
     toast({
       title: "Coming soon",
       description: "Stripe Checkout integration ready — add your keys to subscribe.",
@@ -39,48 +41,48 @@ export default function PricingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="animate-pulse rounded-full h-8 w-8 bg-gray-200 dark:bg-gray-700"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse rounded-full h-8 w-8 bg-brand-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       <div className="max-w-7xl mx-auto py-12 px-4">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Simple, transparent pricing</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Simple, transparent pricing</h1>
+          <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
             Choose the plan that fits your document generation needs. No hidden fees.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {tiers.map((tier) => (
-            <div
+            <Card
               key={tier.id}
-              className={`border rounded-xl p-6 transition hover:border-indigo-300 dark:border-gray-800 dark:hover:border-indigo-900 ${
+              className={`flex flex-col relative ${
                 tier.id === "professional"
-                  ? "border-indigo-500 dark:border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-                  : "bg-white dark:bg-gray-900"
+                  ? "border-brand-600 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-600/20"
+                  : "border-input"
               }`}
             >
-              <div className="mb-6">
-                {tier.id === "professional" && (
-                  <span className="px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 rounded-full">
-                    Most popular
-                  </span>
-                )}
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{tier.name}</h2>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+              {tier.id === "professional" && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge variant="outline" className="text-xs">Most popular</Badge>
+                </div>
+              )}
+              <CardHeader>
+                <h2 className="text-xl font-bold">{tier.name}</h2>
+                <div className="flex items-baseline gap-1 mt-2">
+                  <span className="text-3xl font-bold">
                     {tier.priceMonthly === 0 ? "Free" : `$${(tier.priceMonthly / 100).toFixed(2)}`}
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">/month</span>
+                  <span className="text-sm text-muted-foreground">/month</span>
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                <CardDescription className="mt-2">
                   {tier.id === "free"
                     ? "Get started with automated document generation"
                     : tier.id === "starter"
@@ -88,59 +90,57 @@ export default function PricingPage() {
                     : tier.id === "professional"
                     ? "For growing teams and power users"
                     : "For enterprises and high-volume workflows"}
-                </p>
-              </div>
-
-              <ul className="space-y-3 mb-8">
-                {tier.features.map((feature: string, i: number) => (
-                  <li key={i} className="flex items-start gap-3">
-                    {FEATURE_CHECK}
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => handleSubscribe(tier.stripePriceIdMonthly)}
-                disabled={!tier.stripePriceIdMonthly}
-                className={`w-full py-3 rounded-lg font-medium transition ${
-                  tier.stripePriceIdMonthly
-                    ? tier.id === "professional"
-                      ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                      : "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
-                }`}
-              >
-                {tier.priceMonthly === 0 ? "Get started free" : tier.stripePriceIdMonthly ? "Subscribe" : "Coming soon"}
-              </button>
-
-              <div className="mt-4">
-                <button
-                  onClick={() => handleSubscribe(tier.stripePriceIdYearly)}
-                  disabled={!tier.stripePriceIdYearly}
-                  className={`w-full py-2 rounded-lg font-medium text-sm transition ${
-                    tier.stripePriceIdYearly
-                      ? "text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/30"
-                      : "text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-4 flex-1">
+                <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                  {tier.features.map((feature: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2">
+                      {FEATURE_CHECK}
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  onClick={() => handleSubscribe(tier.stripePriceIdMonthly)}
+                  disabled={!tier.stripePriceIdMonthly}
+                  className={`w-full ${
+                    tier.stripePriceIdMonthly
+                      ? tier.id === "professional"
+                        ? "bg-brand-600 text-white hover:bg-brand-700"
+                        : "bg-brand-600 text-white hover:bg-brand-700"
+                      : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 cursor-not-allowed"
                   }`}
                 >
-                  {tier.stripePriceIdYearly ? `Yearly (save 2 months)` : "Coming soon"}
-                </button>
-              </div>
-            </div>
+                  {tier.priceMonthly === 0 ? "Get started free" : tier.stripePriceIdMonthly ? "Subscribe" : "Coming soon"}
+                </Button>
+                <div className="mt-3">
+                  <Button
+                    onClick={() => handleSubscribe(tier.stripePriceIdYearly)}
+                    disabled={!tier.stripePriceIdYearly}
+                    variant="outline"
+                    className="w-full text-sm"
+                  >
+                    {tier.stripePriceIdYearly ? `Yearly (save 2 months)` : "Coming soon"}
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
           ))}
         </div>
 
-        <div className="mt-16 border-t border-gray-200 dark:border-gray-800 pt-12">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">Compare features</h2>
-          <div className="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-xl">
-            <table className="w-full text-left">
+        <div className="mt-16 border-t border-input pt-12">
+          <h2 className="text-2xl font-bold mb-8 text-center">Compare features</h2>
+          <div className="overflow-x-auto border border-input rounded-xl">
+            <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-gray-50 dark:bg-gray-800/50">
-                  <th className="px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">Feature</th>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                  <th className="px-6 py-4 font-medium text-slate-600 dark:text-slate-400">Feature</th>
                   {tiers.map((t) => (
                     <th key={t.id} className="px-6 py-4 text-center">
-                      <span className="font-bold text-gray-900 dark:text-white">{t.name}</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{t.name}</span>
                     </th>
                   ))}
                 </tr>
@@ -156,8 +156,8 @@ export default function PricingPage() {
                   { label: "Team workspace", key: "team" },
                   { label: "Priority support", key: "support" },
                 ].map((row) => (
-                  <tr key={row.label} className="border-b border-gray-200 dark:border-gray-800">
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 font-medium">{row.label}</td>
+                  <tr key={row.label} className="border-b border-input">
+                    <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">{row.label}</td>
                     {tiers.map((t) => {
                       const features = t.features || [];
                       const hasFeature = features.some((f: string) =>
@@ -193,21 +193,28 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {STRIPE_PUBLISHABLE_KEY ? null : (
-          <div className="mt-12 p-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50">
-            <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100 mb-2">Stripe not configured</h3>
-            <p className="text-amber-800 dark:text-amber-200 text-sm mb-4">
-              To enable paid subscriptions, add these environment variables to your Railway project:
-            </p>
-            <ul className="text-amber-800 dark:text-amber-200 text-sm space-y-1 mb-4">
-              <li>`STRIPE_SECRET_KEY`</li>
-              <li>`STRIPE_PUBLISHABLE_KEY`</li>
-              <li>`STRIPE_WEBHOOK_SECRET`</li>
-            </ul>
-            <p className="text-amber-800 dark:text-amber-200 text-sm">
-              Then create products and prices in the Stripe Dashboard and set the corresponding
-              <code className="bg-amber-100 dark:bg-amber-900/50 px-1 py-0.5 rounded">STRIPE_*_PRICE_ID_*</code> env vars.
-            </p>
+        {!STRIPE_PUBLISHABLE_KEY && (
+          <div className="mt-12 p-6 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/30 dark:bg-amber-900/10">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg text-amber-900 dark:text-amber-100">Stripe not configured</CardTitle>
+                <CardDescription className="text-amber-800 dark:text-amber-200 text-sm">
+                  To enable paid subscriptions, add these environment variables to your Railway project:
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <ul className="text-amber-800 dark:text-amber-200 text-sm space-y-1 mb-4">
+                  <li>`STRIPE_SECRET_KEY`</li>
+                  <li>`STRIPE_PUBLISHABLE_KEY`</li>
+                  <li>`STRIPE_WEBHOOK_SECRET`</li>
+                </ul>
+                <p className="text-amber-800 dark:text-amber-200 text-sm">
+                  Then create products and prices in the Stripe Dashboard and set the corresponding
+                  <code className="bg-amber-100 dark:bg-amber-900/50 px-1 py-0.5 rounded">STRIPE_*_PRICE_ID_*</code>
+                  env vars.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

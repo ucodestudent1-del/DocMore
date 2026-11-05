@@ -1,203 +1,357 @@
 import Link from "next/link";
-import { Zap, FileText, Layers, Edit } from "lucide-react";
+import {
+  FileText,
+  RefreshCw,
+  Layers,
+  ShieldCheck,
+  Download,
+  Upload,
+  ArrowRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+
+const features = [
+  {
+    title: "Document Generation",
+    description: "Create professional documents quickly using customizable templates.",
+    icon: FileText,
+  },
+  {
+    title: "File Conversion",
+    description: "Convert documents between supported file formats with ease.",
+    icon: RefreshCw,
+  },
+  {
+    title: "Document Templates",
+    description: "Save time with ready-made templates for your documents.",
+    icon: Layers,
+  },
+];
+
+const steps = [
+  {
+    step: "01",
+    title: "Upload or generate",
+    description: "Start with a template, paste a prompt, or upload a file to convert.",
+  },
+  {
+    step: "02",
+    title: "Edit & refine",
+    description: "Use the built-in editor to polish your document before exporting.",
+  },
+  {
+    step: "03",
+    title: "Export & share",
+    description: "Download as PDF, DOCX, HTML, or Markdown in one click.",
+  },
+];
+
+const formats = [
+  { label: "PDF", ext: ".pdf" },
+  { label: "DOCX", ext: ".docx" },
+  { label: "HTML", ext: ".html" },
+  { label: "Markdown", ext: ".md" },
+  { label: "XLSX", ext: ".xlsx", note: "coming soon" },
+  { label: "PPTX", ext: ".pptx", note: "coming soon" },
+];
+
+const faqs = [
+  {
+    q: "What file formats does EveryDoc support?",
+    a: "EveryDoc supports conversion between PDF, DOCX, HTML, and Markdown. Additional formats are planned for future releases.",
+  },
+  {
+    q: "Is there a free plan?",
+    a: "Yes. EveryDoc offers a free tier to get started with document generation and conversion. Paid plans unlock higher limits and API access.",
+  },
+  {
+    q: "Can I use templates?",
+    a: "Absolutely. Choose from ready-made templates for invoices, resumes, contracts, and reports, then customize them with your own content.",
+  },
+  {
+    q: "Do I need an account to convert files?",
+    a: "Creating an account lets you save your documents and conversion history. Guest conversion is available for quick, one-off tasks.",
+  },
+];
 
 export default function Page() {
-  const features = [
-    {
-      name: "AI text-to-document",
-      description: "Turn a natural-language prompt into a full document with merge variables.",
-      Icon: Zap,
-    },
-    {
-      name: "Multi-format conversion",
-      description: "Convert between PDF, DOCX, HTML, and Markdown — one file or batch.",
-      Icon: FileText,
-    },
-    {
-      name: "Template gallery",
-      description: "Reusable invoice, resume, contract, and report templates you can edit.",
-      Icon: Layers,
-    },
-    {
-      name: "WYSIWYG editor",
-      description: "Edit generated documents live with real-time preview and auto-save.",
-      Icon: Edit,
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white">
-      <nav className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="font-bold text-xl tracking-tight text-indigo-600 dark:text-indigo-400">
-                EveryDoc
-              </span>
-            </Link>
-            <div className="hidden md:flex items-center gap-6">
-              <a href="/pricing" className="text-sm text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
-                Pricing
-              </a>
-              <a href="/features" className="text-sm text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">
-                Features
-              </a>
-              <a href="/login" className="text-sm text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition font-medium">
-                Sign in
-              </a>
-              <a
-                href="/register"
-                className="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-md transition"
-              >
-                Create account
-              </a>
+    <div className="bg-background text-foreground">
+      <section className="relative px-4 py-16 sm:py-24 lg:py-32 overflow-hidden">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/30 text-brand-600 dark:text-brand-400 text-xs font-semibold uppercase tracking-wider">
+                Document productivity platform
+              </div>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-balance leading-tight">
+                Documents made simple.
+              </h1>
+              <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 leading-relaxed">
+                Generate, convert, and manage your documents — all in one place.
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 leading-relaxed max-w-lg">
+                Create professional documents and convert files between formats without the hassle.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                <Link href="/register">
+                  <Button size="lg" className="w-full sm:w-auto">
+                    Get Started Free <ArrowRight size={18} strokeWidth={2} className="ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/pricing">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                    Explore Pricing
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative">
+              <ConversionPreview />
             </div>
           </div>
         </div>
-      </nav>
+      </section>
 
-      <main id="main-content">
-        <section className="relative px-4 py-16 sm:py-24 lg:py-32 overflow-hidden">
-          <div className="max-w-5xl mx-auto text-center relative z-10">
-            <span className="inline-block px-3 py-1 mb-6 text-xs font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase bg-indigo-50 dark:bg-indigo-900/20 rounded-full border border-indigo-100 dark:border-indigo-900/30">
-              Automated document generation
-            </span>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-              Generate and convert documents in seconds
-            </h1>
-            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-              EveryDoc is an all-in-one platform for AI-powered document generation and multi-format file
-              conversion. Create invoices, resumes, contracts, and reports from templates or prompts — then export
-              to PDF, DOCX, HTML, or Markdown.
+      <section className="border-y border-input bg-slate-50 dark:bg-slate-950/50">
+        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-3xl font-bold tracking-tight mb-4">Everything you need to move from idea to document</h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400">
+              From first draft to final export, EveryDoc handles the busywork so you can focus on what matters.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="/register"
-                className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-semibold text-lg hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition shadow-lg"
-              >
-                Create free account
-              </a>
-              <a
-                href="/convert"
-                className="px-8 py-4 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl font-semibold text-lg hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition"
-              >
-                Convert a file &rarr;
-              </a>
-            </div>
           </div>
-        </section>
-
-        <section className="py-16 sm:py-24 border-y border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/30">
-          <div className="max-w-5xl mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-2xl sm:text-3xl font-bold mb-4">Everything you need to move from idea to document</h2>
-              <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-                From first draft to final export, EveryDoc handles the busywork so you can focus on content.
-              </p>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {features.map((f) => {
-                const Icon = f.Icon;
-                return (
-                  <div key={f.name} className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 hover:shadow-md transition">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+          <div className="grid md:grid-cols-3 gap-6">
+            {features.map((f) => {
+              const Icon = f.icon;
+              return (
+                <Card key={f.title}>
+                  <CardHeader className="pb-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center text-brand-600 dark:text-brand-400 mb-4">
                       <Icon size={20} strokeWidth={2} />
                     </div>
-                    <h3 className="text-lg font-bold mb-2">{f.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{f.description}</p>
-                  </div>
-                );
-              })}
-            </div>
+                    <CardTitle>{f.title}</CardTitle>
+                    <CardDescription>{f.description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              );
+            })}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="py-16 sm:py-24">
-          <div className="max-w-5xl mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-2xl sm:text-3xl font-bold mb-4">Simple, transparent pricing</h2>
-              <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-                Start free. Upgrade when you need more documents, conversions, and AI credits.
+      <section className="py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-6">
+              <h2 className="text-3xl font-bold tracking-tight">How EveryDoc works</h2>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Turn your ideas into polished documents in three simple steps.
               </p>
             </div>
-            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {[
-                {
-                  name: "Free",
-                  price: "$0",
-                  desc: "Get started with automated document generation",
-                  features: ["5 documents / month", "10 conversions / month", "500 MB storage", "10 AI credits", "Public templates"],
-                  cta: "Get started free",
-                  highlight: false,
-                },
-                {
-                  name: "Starter",
-                  price: "$9",
-                  desc: "For individuals and small projects",
-                  features: ["50 documents / month", "100 conversions / month", "5 GB storage", "100 AI credits", "No watermark"],
-                  cta: "Subscribe",
-                  highlight: false,
-                },
-                {
-                  name: "Professional",
-                  price: "$29",
-                  desc: "For growing teams and power users",
-                  features: ["250 documents / month", "500 conversions / month", "20 GB storage", "500 AI credits", "API access", "Batch conversion"],
-                  cta: "Subscribe",
-                  highlight: true,
-                },
-              ].map((tier) => (
-                <div
-                  key={tier.name}
-                  className={`rounded-xl p-6 border transition ${tier.highlight ? "border-indigo-500 dark:border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/20" : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800"}`}
-                >
-                  <div className="mb-6">
-                    {tier.highlight && (
-                      <span className="px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 rounded-full">
-                        Most popular
-                      </span>
-                    )}
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{tier.name}</h3>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold text-gray-900 dark:text-white">{tier.price}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">/mo</span>
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{tier.desc}</p>
+            <div className="space-y-6">
+              {steps.map((s) => (
+                <div key={s.step} className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white text-sm font-semibold shrink-0">
+                    {s.step}
                   </div>
-                  <ul className="space-y-3 mb-6 text-sm text-gray-600 dark:text-gray-300">
-                    {tier.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <span className="text-indigo-600 dark:text-indigo-400">&#10003;</span>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    className={`w-full py-3 rounded-xl font-medium transition ${tier.highlight ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-                  >
-                    {tier.cta}
-                  </button>
+                  <div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">{s.title}</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{s.description}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="py-16 sm:py-24 bg-gray-50 dark:bg-gray-900/30">
-          <div className="max-w-3xl mx-auto px-4 text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-6">Ready to stop wrestling with documents?</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-lg mx-auto leading-relaxed">
-              Join teams generating invoices, resumes, contracts, and reports in seconds — not hours.
+      <section className="border-y border-input">
+        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight mb-4">Supported file formats</h2>
+            <p className="text-slate-600 dark:text-slate-400">
+              Convert between the formats you use every day.
             </p>
-            <a
-              href="/register"
-              className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition inline-block"
-            >
-              Create your free account
-            </a>
           </div>
-        </section>
-      </main>
+          <div className="grid md:grid-cols-4 gap-4">
+            {formats.map((f) => (
+              <div
+                key={f.label}
+                className="flex flex-col items-center gap-2 rounded-xl border border-input bg-background p-4 hover:border-brand-600 dark:hover:border-brand-500 transition"
+              >
+                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                  {f.label}
+                </span>
+                {f.note && (
+                  <span className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    {f.note}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 sm:py-24 bg-slate-50 dark:bg-slate-950/50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h2 className="text-3xl font-bold tracking-tight mb-6">Simple, transparent pricing</h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400">
+              Start free. Upgrade when you need more documents, conversions, and AI credits.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {[
+              {
+                name: "Free",
+                price: "$0",
+                desc: "Get started with document generation",
+                features: ["5 documents / month", "10 conversions / month", "500 MB storage", "10 AI credits"],
+                cta: "Get started free",
+                highlight: false,
+              },
+              {
+                name: "Starter",
+                price: "$9",
+                desc: "For individuals and small projects",
+                features: ["50 documents / month", "100 conversions / month", "5 GB storage", "100 AI credits"],
+                cta: "Subscribe",
+                highlight: false,
+              },
+              {
+                name: "Professional",
+                price: "$29",
+                desc: "For growing teams and power users",
+                features: ["250 documents / month", "500 conversions / month", "20 GB storage", "500 AI credits", "API access", "Batch conversion"],
+                cta: "Subscribe",
+                highlight: true,
+              },
+            ].map((tier) => (
+              <Card key={tier.name} className={`flex flex-col ${tier.highlight ? "border-brand-600 bg-brand-50 dark:bg-brand-900/20" : ""}`}>
+                <CardHeader>
+                  {tier.highlight && <Badge variant="outline" className="text-xs">Most popular</Badge>}
+                  <CardTitle className="text-lg">{tier.name}</CardTitle>
+                  <div className="flex items-baseline gap-1 mt-2">
+                    <span className="text-3xl font-bold">{tier.price}</span>
+                    <span className="text-sm text-muted-foreground">/mo</span>
+                  </div>
+                  <CardDescription>{tier.desc}</CardDescription>
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                    {tier.features.map((f) => (
+                      <li key={f} className="flex items-center gap-2">
+                        <ShieldCheck size={14} strokeWidth={2} className="text-brand-600 dark:text-brand-400" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full" variant={tier.highlight ? "default" : "outline"}>
+                    {tier.cta}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 sm:py-24">
+        <div className="max-w-3xl mx-auto px-4">
+          <h2 className="text-3xl font-bold tracking-tight mb-8">Frequently asked questions</h2>
+          <div className="space-y-4">
+            {faqs.map((faq, i) => (
+              <Card key={i} className="overflow-hidden">
+                <div className="p-6">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{faq.q}</h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{faq.a}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-input bg-background py-12">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-lg tracking-tight text-brand-600 dark:text-brand-400">EveryDoc</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm text-slate-600 dark:text-slate-400">
+            <Link href="/pricing" className="hover:text-brand-600 dark:hover:text-brand-400 transition">
+              Pricing
+            </Link>
+            <span className="text-slate-400">·</span>
+            <Link href="/" className="hover:text-brand-600 dark:hover:text-brand-400 transition">
+              Features
+            </Link>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-500">
+            © {new Date().getFullYear()} EveryDoc. All rights reserved.
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function ConversionPreview() {
+  return (
+    <div className="rounded-2xl border border-input bg-background shadow-lg p-6 dark:border-slate-700">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="h-3 w-3 rounded-full bg-red-500"></div>
+        <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+      </div>
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-4">
+            <Upload size={16} strokeWidth={2} className="text-brand-600 dark:text-brand-400" />
+            <span className="text-sm font-medium text-slate-900 dark:text-white">Upload document</span>
+          </div>
+          <div className="border-2 border-dashed border-input rounded-xl p-6 text-center hover:border-brand-600 transition">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Drag &amp; drop your file here</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">PDF · DOCX · HTML · Markdown</p>
+          </div>
+          <div className="mt-4 flex gap-2">
+            {["PDF", "DOCX", "HTML", "MD"].map((f) => (
+              <button
+                key={f}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-input bg-background hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 transition"
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="w-full lg:w-1/2">
+          <div className="rounded-xl border border-input bg-slate-50 dark:bg-slate-800 p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Preview</span>
+              <Download size={14} strokeWidth={2} className="text-slate-400" />
+            </div>
+            <div className="h-32 flex items-center justify-center">
+              <p className="text-sm text-slate-400 italic">Your document preview appears here</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -25,6 +25,7 @@
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
+    "@types/aria-query": "^5.0.4",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -41,12 +42,17 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "jest-environment-jsdom",
-    "testMatch": ["**/__tests__/**/*.test.{ts,tsx}", "**/*.test.{ts,tsx}"],
+    "testMatch": [
+      "**/__tests__/**/*.test.{ts,tsx}",
+      "**/*.test.{ts,tsx}"
+    ],
     "moduleNameMapper": {
       "\\.(css|less|scss|sass)$": "identity-obj-proxy",
       "^@/(.*)$": "<rootDir>/app/$1"
     },
-    "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
+    ],
     "testTimeout": 30000
   }
 }

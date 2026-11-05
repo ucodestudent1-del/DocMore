@@ -1,10 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/Toast";
 import { Mail, Lock, User, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -31,81 +35,87 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-      <div className="max-w-md w-full">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create account</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center space-y-1">
+          <CardTitle className="text-2xl">Create account</CardTitle>
+          <CardDescription>
             Start generating documents today
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
-          <form onSubmit={handleRegister} className="space-y-6">
-            <div className="space-y-3">
-              <label htmlFor="register-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="relative space-y-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Full name
               </label>
-              <input
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <User size={18} strokeWidth={2} className="text-slate-400" />
+              </div>
+              <Input
                 id="register-name"
                 type="text"
+                placeholder="Jane Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus:border-transparent outline-none transition"
+                className="pl-10"
               />
             </div>
 
-            <div className="space-y-3">
-              <label htmlFor="register-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="relative space-y-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Email address
               </label>
-              <input
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Mail size={18} strokeWidth={2} className="text-slate-400" />
+              </div>
+              <Input
                 id="register-email"
                 type="email"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus:border-transparent outline-none transition"
+                className="pl-10"
               />
             </div>
 
-            <div className="space-y-3">
-              <label htmlFor="register-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="relative space-y-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Password
               </label>
-              <input
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Lock size={18} strokeWidth={2} className="text-slate-400" />
+              </div>
+              <Input
                 id="register-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus:border-transparent outline-none transition"
+                className="pl-10"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-3 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50 transition"
-            >
+            <Button type="submit" disabled={loading} className="w-full">
               {loading ? (
-                <ArrowRight className="w-5 h-5 animate-spin" />
+                <ArrowRight size={18} strokeWidth={2} className="mr-2 animate-spin" />
               ) : (
-                <><User className="w-5 h-5 mr-2" /> Create account</>
+                <User size={18} strokeWidth={2} className="mr-2" />
               )}
-            </button>
+              Create account
+            </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
-            <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-              Already have an account?{" "}
-              <a href="/login" className="text-indigo-600 hover:underline font-medium">
-                Sign in
-              </a>
-            </p>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+        <CardFooter className="border-t border-input">
+          <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+            Already have an account?{" "}
+            <Link href="/login" className="text-brand-600 dark:text-brand-400 font-medium hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

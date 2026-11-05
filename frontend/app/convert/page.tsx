@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api, API_BASE, downloadFile } from "@/lib/api";
-import { Upload, RefreshCw, Download, Trash2, Clock } from "lucide-react";
+import { Upload, RefreshCw, Download, Clock, FileText } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 type Format = "pdf" | "docx" | "html" | "md";
 
@@ -16,30 +21,32 @@ const EXT_LABEL: Record<Format, string> = {
   md: "Markdown",
 };
 
-const MAX_FILE_SIZE_FREE = 25 * 1024 * 1024; // 25 MB
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB free tier
 
-type Job = {
-  id: string;
-  file: File | null;
-  url: string | null;
-  status: "queued" | "processing" | "completed" | "failed";
-  targetFormat: Format;
-  sourceFilename: string;
-  targetFilename: string | null;
-  downloadUrl: string | null;
-  error: string | null;
-  progress: number;
+type JobStatus = "queued" | "processing" | "completed" | "failed";
+
+const statusLabel: Record<JobStatus, string> = {
+  queued: "Queued",
+  processing: "Processing",
+  completed: "Completed",
+  failed: "Failed",
+};
+
+const statusColor: Record<JobStatus, string> = {
+  queued: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  processing: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
 };
 
 export default function Convert() {
   const router = useRouter();
   const [checkedAuth, setCheckedAuth] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [urlInput, setUrlInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [targetFormat, setTargetFormat] = useState<Format>("pdf");
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [job, setJob] = useState<{ id: string; status: JobStatus; targetFormat: string; sourceFilename: string; downloadUrl: string | null; error: string | null } | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
@@ -69,32 +76,46 @@ export default function Convert() {
     }
   }, []);
 
-  const validateFile = useCallback((file: File): string | null => {
-    const sf = sourceFormatOf(file.name);
+  const validateFile = useCallback((f: File): string | null => {
+    const sf = sourceFormatOf(f.name);
     if (!sf) return "Unsupported file type. Use PDF, DOCX, HTML, or Markdown.";
-    if (file.size > MAX_FILE_SIZE_FREE) return `${file.name} exceeds the 25 MB free-tier limit.`;
+    if (f.size > MAX_FILE_SIZE) return `${f.name} exceeds the 25 MB free-tier limit.`;
     return null;
   }, [sourceFormatOf]);
 
-  const startConversion = useCallback(async (file: File | null, url: string | null) => {
-    const jobId = Math.random().toString(36).slice(2);
-    const job: Job = {
-      id: jobId,
-      file,
-      url,
-      status: "queued",
-      targetFormat,
-      sourceFilename: url || file?.name || "upload",
-      targetFilename: null,
-      downloadUrl: null,
-      error: null,
-      progress: 0,
-    };
-    setJobs((prev) => [...prev, job]);
+  const pollJob = useCallback((id: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const data = await api(`/api/v1/convert/${id}`);
+        setJob((prev) => (prev ? { ...prev, status: data.status, downloadUrl: data.downloadUrl, error: data.error || null } : prev));
+        if (data.status === "completed" || data.status === "failed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      } catch {
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }, 2000);
+  }, []);
 
+  const handleConvert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!file) {
+      setError("Please upload a file to convert.");
+      return;
+    }
+    const v = validateFile(file);
+    if (v) {
+      setError(v);
+      return;
+    }
+
+    setLoading(true);
     const form = new FormData();
-    if (file) form.append("file", file);
-    if (url) form.append("url", url);
+    form.append("file", file);
     form.append("targetFormat", targetFormat);
 
     try {
@@ -108,242 +129,174 @@ export default function Convert() {
         throw new Error(t || `Conversion failed ${res.status}`);
       }
       const data = await res.json();
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.id === jobId
-            ? { ...j, status: "completed", downloadUrl: data.downloadUrl, targetFilename: data.outputFilename, progress: 100 }
-            : j
-        )
-      );
-      toast({ title: "Conversion complete" });
+      setJob({
+        id: data.id,
+        status: data.status,
+        targetFormat: data.targetFormat,
+        sourceFilename: file.name,
+        downloadUrl: data.downloadUrl ?? null,
+        error: null,
+      });
+      pollJob(data.id);
+      toast({ title: "Conversion started" });
     } catch (e: any) {
-      setJobs((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, status: "failed", error: e.message } : j))
-      );
       toast({ title: "Conversion failed", description: e.message, variant: "destructive" });
-    }
-  }, [targetFormat, toast]);
-
-  const handleConvert = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    const items: { file: File | null; url: string | null }[] = [];
-    files.forEach((f) => items.push({ file: f, url: null }));
-    if (urlInput.trim()) items.push({ file: null, url: urlInput.trim() });
-
-    if (items.length === 0) {
-      setError("Upload a file or enter a URL to convert.");
-      return;
-    }
-
-    for (const item of items) {
-      if (item.file) {
-        const v = validateFile(item.file);
-        if (v) {
-          setError(v);
-          return;
-        }
-      }
-    }
-
-    setLoading(true);
-    try {
-      await Promise.all(items.map((item) => startConversion(item.file, item.url)));
-      setFiles([]);
-      setUrlInput("");
     } finally {
       setLoading(false);
     }
   };
 
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
+  const removeFile = () => setFile(null);
 
-  const removeUrl = () => setUrlInput("");
-
-  const downloadJob = (job: Job) => {
-    if (!job.downloadUrl || !job.targetFilename) return;
-    downloadFile(job.downloadUrl, job.targetFilename).catch((e: any) =>
+  const downloadJob = () => {
+    if (!job?.downloadUrl) return;
+    downloadFile(job.downloadUrl, `${job.sourceFilename.replace(/\.[^/.]+$/, "")}.${job.targetFormat}`).catch((e: any) =>
       toast({ title: "Download failed", description: e.message, variant: "destructive" })
     );
   };
 
-  const statusLabel = (s: Job["status"]) => ({
-    queued: "Queued",
-    processing: "Processing",
-    completed: "Completed",
-    failed: "Failed",
-  }[s]);
-
-  const statusColor = (s: Job["status"]) => ({
-    queued: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
-    processing: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-    completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-    failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  }[s]);
-
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Convert a File</h1>
-      <p className="text-gray-500 mb-6 dark:text-gray-400">
-        Convert between PDF, Word, HTML, and Markdown. Upload files or import from a URL.
-      </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Convert a File</h1>
+          <p className="text-slate-500 dark:text-slate-400">
+            Convert between PDF, Word, HTML, and Markdown.
+          </p>
+        </div>
+        <Button asChild>
+          <a href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+            <Clock size={16} strokeWidth={2} className="mr-2" /> Back to dashboard
+          </a>
+        </Button>
+      </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+        <div className="mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleConvert} className="space-y-5">
-        <section>
-          <label htmlFor="convert-file" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Files
-          </label>
-          <div
-            id="convert-file"
-            className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-indigo-400 transition dark:border-gray-600 dark:bg-gray-800/50 cursor-pointer"
-          >
-            <Upload size={32} strokeWidth={2} className="mx-auto mb-3 text-gray-400 dark:text-gray-500" />
-            <p className="text-sm text-gray-600 mb-2 dark:text-gray-400">
-              Drag &amp; drop files, or click to browse
-            </p>
-            <input
-              type="file"
-              accept=".pdf,.docx,.html,.md,.markdown"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) setFiles([...files, ...Array.from(e.target.files)]);
-              }}
-            />
-            {files.length > 0 && (
-              <div className="mt-4 space-y-2 max-w-xs mx-auto">
-                {files.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 text-sm">
-                    <span className="truncate text-gray-700 dark:text-gray-300" title={f.name}>
-                      {f.name} ({(f.size / 1024).toFixed(1)} KB)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
-                      aria-label={`Remove ${f.name}`}
-                    >
-                      <Trash2 size={14} strokeWidth={2} />
-                    </button>
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload file</CardTitle>
+          <CardDescription>
+            Select a single file (PDF, DOCX, HTML, or Markdown) to convert.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <form onSubmit={handleConvert}>
+            <div
+              onClick={() => (document.getElementById("convert-file") as HTMLInputElement)?.click()}
+              className="border-2 border-dashed border-input rounded-xl p-8 text-center hover:border-brand-600 dark:hover:border-brand-500 transition cursor-pointer group"
+            >
+              <input
+                id="convert-file"
+                type="file"
+                accept=".pdf,.docx,.html,.md,.markdown"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) setFile(e.target.files[0]);
+                }}
+              />
+              <div className="flex flex-col items-center gap-2">
+                <Upload size={32} strokeWidth={2} className="text-slate-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">Drag &amp; drop a file, or click to browse</p>
+              </div>
+              {file && (
+                <div className="flex items-center gap-3 px-4 py-2 mt-4 rounded-lg bg-slate-50 dark:bg-slate-800 border border-input">
+                  <FileText size={16} strokeWidth={2} className="text-brand-600 dark:text-brand-400" />
+                  <div>
+                    <div className="text-sm font-medium text-slate-900 dark:text-white truncate" title={file.name}>{file.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{(file.size / 1024).toFixed(1)} KB</div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={removeFile}
+                    className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition"
+                    aria-label="Remove file"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-slate-500 dark:text-slate-400">Max 25 MB per file on the free tier.</p>
+            </div>
+
+            <Separator orientation="vertical" className="my-6" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Target format</label>
+              <div className="flex gap-2">
+                {FORMATS.map((f) => (
+                  <label
+                    key={f}
+                    className={`flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-sm transition ${targetFormat === f ? "border-brand-600 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400" : "border-input text-slate-600 dark:text-slate-300 hover:bg-accent dark:hover:bg-slate-800"}`}
+                  >
+                    <input
+                      type="radio"
+                      name="targetFormat"
+                      value={f}
+                      checked={targetFormat === f}
+                      onChange={() => setTargetFormat(f)}
+                      className="sr-only"
+                    />
+                    {EXT_LABEL[f]}
+                  </label>
                 ))}
               </div>
+            </div>
+
+            <div className="pt-4">
+              <Button type="submit" disabled={loading || !file} className="w-full">
+                {loading ? (
+                  <><RefreshCw size={18} strokeWidth={2} className="mr-2 inline animate-spin" /> Converting...</>
+                ) : (
+                  <><Upload size={18} strokeWidth={2} className="mr-2 inline" /> Convert File</>
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {job && (
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Conversion result</CardTitle>
+            <Badge variant={job.status === "completed" ? "default" : "outline"}>
+              {statusLabel[job.status]}
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600 dark:text-slate-400">Source</span>
+              <span className="font-medium text-slate-900 dark:text-white">{job.sourceFilename}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600 dark:text-slate-400">Target</span>
+              <span className="font-medium text-slate-900 dark:text-white">{EXT_LABEL[job.targetFormat as keyof typeof EXT_LABEL]}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600 dark:text-slate-400">Status</span>
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor[job.status]}`}>
+                {statusLabel[job.status]}
+              </span>
+            </div>
+            {job.status === "completed" && job.downloadUrl && (
+              <CardFooter>
+                <Button onClick={downloadJob} className="w-full flex items-center justify-center gap-2">
+                  <Download size={16} strokeWidth={2} /> Download {job.sourceFilename.replace(/\.[^/.]+$/, "")}.{job.targetFormat}
+                </Button>
+              </CardFooter>
             )}
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Max 25 MB per file on the free tier. Accepted: PDF, DOCX, HTML, Markdown.
-            </p>
-          </div>
-        </section>
-
-        <section>
-          <label htmlFor="convert-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Or import from URL
-          </label>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              id="convert-url"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="https://example.com/document.pdf"
-              className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-            <button
-              type="button"
-              onClick={removeUrl}
-              disabled={!urlInput.trim()}
-              className="px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50"
-              aria-label="Clear URL"
-            >
-              ×
-            </button>
-          </div>
-          {urlInput.trim() && (
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{urlInput}</p>
-          )}
-        </section>
-
-        <section>
-          <label htmlFor="convert-target-format" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Target format
-          </label>
-          <fieldset id="convert-target-format" className="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-lg p-2">
-            <legend className="px-2 font-medium text-sm text-gray-700 dark:text-gray-300">
-              Target format
-            </legend>
-            {FORMATS.map((f) => (
-              <label key={f} className="flex items-center gap-2 cursor-pointer p-2 border rounded hover:bg-indigo-50 dark:border-gray-600 dark:hover:bg-gray-700">
-                <input
-                  id={`format-${f}`}
-                  type="radio"
-                  name="targetFormat"
-                  value={f}
-                  checked={targetFormat === f}
-                  onChange={() => setTargetFormat(f)}
-                  className="text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-sm dark:text-gray-300">{EXT_LABEL[f]}</span>
-              </label>
-            ))}
-          </fieldset>
-        </section>
-
-        <button
-          type="submit"
-          disabled={loading || files.length === 0 && !urlInput.trim()}
-          className="w-full py-4 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-        >
-          {loading ? (
-            <><RefreshCw size={18} strokeWidth={2} className="mr-2 inline animate-spin" /> Converting...</>
-          ) : (
-            <><Upload size={18} strokeWidth={2} className="mr-2 inline" /> Convert {files.length + (urlInput.trim() ? 1 : 0)} file{files.length + (urlInput.trim() ? 1 : 0) === 1 ? "" : "s"}</>
-          )}
-        </button>
-      </form>
-
-      {jobs.length > 0 && (
-        <section className="mt-10 border border-gray-200 rounded-xl p-6 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
-            <RefreshCw size={18} strokeWidth={2} /> Conversion results
-          </h2>
-          <div className="space-y-3">
-            {jobs.map((job) => (
-              <div key={job.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate" title={job.sourceFilename}>
-                    {job.sourceFilename}
-                  </span>
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor(job.status)}`}
-                  >
-                    {statusLabel(job.status)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">→ {EXT_LABEL[job.targetFormat]}</span>
-                  {job.status === "completed" && job.downloadUrl && job.targetFilename && (
-                    <button
-                      onClick={() => downloadJob(job)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition focus-visible:ring-2 focus-visible:ring-indigo-500"
-                    >
-                      <Download size={14} strokeWidth={2} /> Download
-                    </button>
-                  )}
-                  {job.status === "failed" && (
-                    <span className="text-xs text-red-600 dark:text-red-400 font-medium">{job.error}</span>
-                  )}
-                </div>
+            {job.status === "failed" && (
+              <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                {job.error}
               </div>
-            ))}
-          </div>
-        </section>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

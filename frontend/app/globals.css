@@ -2,25 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-white transition-colors duration-300;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 15 23% 10%; /* #0F172A */
+    --card: 0 0% 100%;
+    --card-foreground: 15 23% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 15 23% 10%;
+    --primary: 63 71% 50%; /* #2563EB */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%; /* #F1F5F9 */
+    --secondary-foreground: 15 23% 10%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 100 8% 55%; /* #64748B */
+    --accent: 210 40% 96%;
+    --accent-foreground: 15 23% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 20% 91%; /* #E2E8F0 */
+    --input: 210 20% 91%;
+    --ring: 63 71% 50%;
+    --radius: 12px;
+
+    --chart-1: 63 71% 50%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 30 84% 55%;
+    --chart-4: 240 90% 60%;
+    --chart-5: 340 82% 52%;
+  }
+
+  .dark {
+    --background: 210 33% 6%;
+    --foreground: 210 40% 98%;
+    --card: 210 33% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 210 33% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 63 71% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 33% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 210 33% 12%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 210 33% 12%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 210 20% 16%;
+    --input: 210 20% 16%;
+    --ring: 63 71% 56%;
+  }
 }
 
-@media print {
-  .no-print {
-    display: none !important;
-  }
-  nav,
-  button,
-  a,
-  .no-print {
-    display: none !important;
-  }
-  main {
-    display: block;
+@layer base {
+  * {
+    @apply border-border;
   }
   body {
-    background: white !important;
-    color: black !important;
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
   }
 }
