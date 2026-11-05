@@ -10,14 +10,7 @@ import { Skeleton, SkeletonText } from "@/components/Skeleton";
 export default function Dashboard() {
   const router = useRouter();
   const [checkedAuth, setCheckedAuth] = useState(false);
-
-  useEffect(() => {
-    api("/api/v1/auth/me")
-      .catch(() => router.push("/login?next=/dashboard"))
-      .finally(() => setCheckedAuth(true));
-  }, [router]);
-
-  if (!checkedAuth) return null;
+  const [usage, setUsage] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [conversions, setConversions] = useState<any[]>([]);
@@ -27,19 +20,15 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   const filteredDocs = docs.filter(
-    (d) => d.title.toLowerCase().includes(search.toLowerCase()),
+    (d: any) => d.title.toLowerCase().includes(search.toLowerCase()),
   );
-
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        (document.querySelector('input[placeholder="Document title"]') as HTMLElement | null)?.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
+    api("/api/v1/auth/me")
+      .catch(() => router.push("/login?next=/dashboard"))
+      .finally(() => setCheckedAuth(true));
+  }, [router]);
+
+  if (!checkedAuth) return null;
 
   useEffect(() => {
     load();
@@ -47,14 +36,16 @@ export default function Dashboard() {
 
   async function load() {
     try {
-      const [d, t, c] = await Promise.all([
+      const [d, t, c, u] = await Promise.all([
         api("/api/v1/documents"),
         api("/api/v1/templates"),
         api("/api/v1/conversions").catch(() => []),
+        api("/api/v1/usage").catch(() => null),
       ]);
       setDocs(d || []);
       setTemplates(t || []);
       setConversions(c || []);
+      setUsage(u || null);
     } catch (e: any) {
       toast({ title: "Failed to load", description: e.message, variant: "destructive" });
     } finally {
@@ -117,6 +108,47 @@ export default function Dashboard() {
             <span>Recent conversions: {conversions.length}</span>
           </div>
         </div>
+
+        {usage && (
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold mb-2">
+                Documents this month
+              </p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                  {usage.documents?.used ?? 0}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  /{usage.documents?.limit ?? "∞"}
+                </span>
+              </div>
+              {usage.documents?.exceeded && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  Limit reached — upgrade to generate more documents
+                </p>
+              )}
+            </div>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold mb-2">
+                Conversions this month
+              </p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                  {usage.conversions?.used ?? 0}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  /{usage.conversions?.limit ?? "∞"}
+                </span>
+              </div>
+              {usage.conversions?.exceeded && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  Limit reached — upgrade to convert more files
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="mb-8">

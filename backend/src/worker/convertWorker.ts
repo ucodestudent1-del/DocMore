@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { query } from "../db/pool";
 import { downloadFile, uploadFile, isConfigured } from "../services/storage";
 import { convertBuffer, getMimeForFormat, SourceFormat, TargetFormat } from "../services/conversion";
+import { incrementUsage } from "../services/usage";
 
 function parseRedisUrl(url: string) {
   const parsed = new URL(url);
@@ -44,6 +45,7 @@ async function processJob(job: any) {
     );
 
     console.log(`Conversion job ${jobId} completed: ${outputKey}`);
+    await incrementUsage(userId, "conversion");
   } catch (err: any) {
     console.error(`Conversion job ${jobId} failed:`, err);
     await query(

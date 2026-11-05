@@ -2,6 +2,7 @@ import { Router } from "express";
 import { query } from "../db/pool";
 import { asyncHandler } from "../middleware/error";
 import { requireUser } from "../middleware/auth";
+import { requireUsageLimit, incrementUsageAfter } from "../middleware/usage";
 import { z } from "zod";
 
 const router = Router();
@@ -25,7 +26,7 @@ router.get("/", requireUser, asyncHandler(async (req: any, res: any) => {
   res.json(rows);
 }));
 
-router.post("/", requireUser, asyncHandler(async (req: any, res: any) => {
+router.post("/", requireUser, requireUsageLimit("doc_generated"), asyncHandler(async (req: any, res: any) => {
   const parsed = docSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", status: 400 });
   const { title, templateId, content } = parsed.data;
@@ -43,6 +44,9 @@ router.post("/", requireUser, asyncHandler(async (req: any, res: any) => {
      RETURNING id, workspace_id, template_id, title, content, status, created_at, updated_at`,
     [workspaceId, templateId ?? null, title, content ?? {}],
   );
+
+  await incrementUsageAfter(req);
+
   res.status(201).json(rows[0]);
 }));
 

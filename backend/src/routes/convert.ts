@@ -4,6 +4,7 @@ import { readFileSync } from "fs";
 import { query } from "../db/pool";
 import { asyncHandler } from "../middleware/error";
 import { requireUser } from "../middleware/auth";
+import { requireUsageLimit, incrementUsageAfter } from "../middleware/usage";
 import { conversionQueue } from "../services/queue";
 import { uploadFile, isConfigured, getSignedDownloadUrl } from "../services/storage";
 import { getMimeForFormat } from "../services/conversion";
@@ -24,7 +25,7 @@ const SOURCE_EXT_TO_FORMAT: Record<string, "pdf" | "docx" | "html" | "md"> = {
   markdown: "md",
 };
 
-router.post("/", requireUser, upload.single("file"), asyncHandler(async (req: any, res: any) => {
+router.post("/", requireUser, requireUsageLimit("conversion"), upload.single("file"), asyncHandler(async (req: any, res: any) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded", status: 400 });
   const parsed = convertSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid targetFormat", status: 400 });
@@ -66,6 +67,8 @@ router.post("/", requireUser, upload.single("file"), asyncHandler(async (req: an
     },
     { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
   );
+
+  await incrementUsageAfter(req);
 
   res.json({
     id: job.id,
