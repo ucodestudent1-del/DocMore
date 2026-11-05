@@ -9,10 +9,13 @@ import healthRouter from "./routes/health";
 import documentsRouter from "./routes/documents";
 import templatesRouter from "./routes/templates";
 import convertRouter from "./routes/convert";
+import generateRouter from "./routes/generate";
 import exportRouter from "./routes/export";
 import authRouter from "./routes/auth";
 import billingRouter from "./routes/billing";
 import usageRouter from "./routes/usage";
+import webhooksRouter from "./routes/webhooks";
+import mappingRouter from "./routes/mapping";
 import { requireUser } from "./middleware/auth";
 import { requireTier } from "./middleware/billing";
 
@@ -45,6 +48,9 @@ export function createApp() {
   app.use("/api/v1/documents", requireUser, documentsRouter);
   app.use("/api/v1/templates", requireUser, templatesRouter);
   app.use("/api/v1/convert", requireUser, convertRouter);
+  app.use("/api/v1/generate", requireUser, generateRouter);
+  app.use("/api/v1/webhooks", requireUser, webhooksRouter);
+  app.use("/api/v1/mapping", requireUser, mappingRouter);
   app.use("/api/v1/export", requireUser, exportRouter);
 
   app.use((_req, res) => {

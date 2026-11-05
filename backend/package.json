@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "concurrently \"node dist/server.js\" \"node dist/worker/convertWorker.js\"",
+    "start": "concurrently \"node dist/server.js\" \"node dist/worker/convertWorker.js\" \"node dist/worker/generateWorker.js\"",
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
     "lint": "eslint src --ext .ts",

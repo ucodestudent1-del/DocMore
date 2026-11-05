@@ -66,6 +66,77 @@ CREATE INDEX IF NOT EXISTS idx_templates_workspace ON templates(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_conversion_jobs_user ON conversion_jobs(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversion_jobs_status ON conversion_jobs(status);
 
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS format TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS output_path TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS generated_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS generation_jobs (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  template_id TEXT REFERENCES templates(id) ON DELETE SET NULL,
+  document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+  input_data JSONB NOT NULL DEFAULT '{}',
+  output_format TEXT NOT NULL DEFAULT 'pdf',
+  status TEXT NOT NULL DEFAULT 'queued',
+  output_path TEXT,
+  error TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 3,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_user ON generation_jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_status ON generation_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_template ON generation_jobs(template_id);
+
+CREATE TABLE IF NOT EXISTS webhooks (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  events TEXT[] NOT NULL DEFAULT '{}',
+  secret TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhooks_workspace ON webhooks(workspace_id);
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  webhook_id TEXT NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+  event TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'pending',
+  response_status INTEGER,
+  response_body TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 5,
+  next_retry_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  delivered_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_next_retry ON webhook_deliveries(next_retry_at);
+
+CREATE TABLE IF NOT EXISTS mapping_profiles (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  template_id TEXT REFERENCES templates(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  source_schema JSONB NOT NULL DEFAULT '{}',
+  field_mapping JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mapping_profiles_workspace ON mapping_profiles(workspace_id);
+
 CREATE TABLE IF NOT EXISTS usage (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

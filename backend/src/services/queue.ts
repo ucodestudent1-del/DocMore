@@ -10,8 +10,11 @@ function parseRedisUrl(url: string) {
   };
 }
 
-export const conversionQueue = new Queue("document-conversion", {
+const redisConnection = {
   connection: parseRedisUrl(config.REDIS_URL || "redis://localhost:6379"),
-});
+};
+
+export const conversionQueue = new Queue("document-conversion", redisConnection);
+export const generationQueue = new Queue("document-generation", redisConnection);
 
 export default conversionQueue;
