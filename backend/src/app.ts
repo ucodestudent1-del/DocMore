@@ -47,14 +47,6 @@ export function createApp() {
   app.use("/api/v1/convert", requireUser, convertRouter);
   app.use("/api/v1/export", requireUser, exportRouter);
 
-  if (config.NODE_ENV === "production") {
-    const frontendOut = path.join(__dirname, "../../frontend/out");
-    app.use(express.static(frontendOut));
-    app.get(/^(?!\/api).*$/, (_req, res) => {
-      res.sendFile(path.join(frontendOut, "index.html"));
-    });
-  }
-
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found", status: 404 });
   });
